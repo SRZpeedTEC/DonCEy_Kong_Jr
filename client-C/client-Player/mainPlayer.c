@@ -1,6 +1,6 @@
 // mainPlayer.c
-// Client "main": connects, reads ACK, pulls initial RECT_STATE,
-// then sends simple inputs (L/R/U/D/J) and prints updated rectangle lists.
+// Client "main": connects, reads ACK, pulls initial MATRIX_STATE,
+// then sends simple inputs (L/R/U/D/J) and prints updated matrices.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include "clientPlayer.h"
 #include "net.h"
 
-static int read_and_maybe_print_rect_state(int sock) {
+static int read_and_maybe_print_matrix(int sock) {
     struct CP_Header h;
     if (!cp_read_header(sock, &h)) {
         printf("Server closed.\n");
@@ -28,11 +28,12 @@ static int read_and_maybe_print_rect_state(int sock) {
         }
     }
 
-    if (h.type == CP_TYPE_RECT_STATE && payload) {
-        struct CP_RectState state;
-        if (cp_recv_rect_payload(payload, h.payloadLen, &state)) {
-            cp_print_rect_state(&state);
-            cp_free_rect_state(&state);
+    if (h.type == CP_TYPE_MATRIX_STATE && payload) {
+        uint16_t rows=0, cols=0;
+        uint8_t *data = NULL;
+        if (cp_recv_matrix_payload(payload, h.payloadLen, &rows, &cols, &data)) {
+            cp_print_matrix(rows, cols, data);
+            free(data);
         }
     } else if (h.type == CP_TYPE_CLIENT_ACK) {
         // no-op; already handled earlier typically
@@ -97,14 +98,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    // ---- Read and print the initial RECT_STATE (blocking, one message) ----
+    // ---- Read and print the initial MATRIX_STATE (blocking, one message) ----
     // Some servers send it immediately after ACK; this consumes and prints it.
-    if (read_and_maybe_print_rect_state(sock) < 0) {
+    if (read_and_maybe_print_matrix(sock) < 0) {
         net_close(sock); net_cleanup();
         return 0;
     }
 
-    // ---- Prompt loop: send inputs and read one response (rectangles) each time ----
+    // ---- Prompt loop: send inputs and read one response (matrix) each time ----
     printf("> ");
     fflush(stdout);
 
@@ -119,8 +120,8 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Failed to send input\n");
                 break;
             }
-            // After sending an input, read the server's response (expected RECT_STATE)
-            if (read_and_maybe_print_rect_state(sock) < 0) break;
+            // After sending an input, read the server's response (expected MATRIX_STATE)
+            if (read_and_maybe_print_matrix(sock) < 0) break;
         }
 
         printf("> ");

@@ -29,101 +29,30 @@ bool cp_read_header(int sock, struct CP_Header *h) {
     return true;
 }
 
-static void cp_free_rect_group(struct CP_RectGroup *group) {
-    if (!group) return;
-    free(group->rects);
-    group->rects = NULL;
-    group->rectCount = 0;
-}
+bool cp_recv_matrix_payload(const uint8_t *payload, uint32_t payloadLen,
+                            uint16_t *outRows, uint16_t *outCols, uint8_t **outData) {
+    if (payloadLen < 4) return false;
+    uint16_t rows = be16(&payload[0]);
+    uint16_t cols = be16(&payload[2]);
+    uint32_t need = 4u + (uint32_t)rows * (uint32_t)cols;
+    if (need != payloadLen) return false;
 
-static const char *cp_element_type_name(uint8_t type) {
-    switch (type) {
-        case 1: return "PLAYER";
-        case 2: return "ENEMY";
-        case 3: return "FRUIT";
-        case 4: return "PLATFORM";
-        default: return "UNKNOWN";
-    }
-}
+    uint8_t *data = (uint8_t*)malloc((size_t)rows * (size_t)cols);
+    if (!data) return false;
+    memcpy(data, payload + 4, (size_t)rows * (size_t)cols);
 
-bool cp_recv_rect_payload(const uint8_t *payload, uint32_t payloadLen,
-                          struct CP_RectState *outState) {
-    if (!payload || !outState) return false;
-    if (payloadLen < 2) return false;
-
-    memset(outState, 0, sizeof(*outState));
-
-    uint16_t groups = be16(&payload[0]);
-    size_t offset = 2;
-
-    struct CP_RectGroup *grp = NULL;
-    if (groups > 0) {
-        grp = (struct CP_RectGroup*)calloc(groups, sizeof(struct CP_RectGroup));
-        if (!grp) return false;
-    }
-
-    for (uint16_t i = 0; i < groups; ++i) {
-        if (offset + 3 > payloadLen) {
-            for (uint16_t j = 0; j < i; ++j) cp_free_rect_group(&grp[j]);
-            free(grp);
-            return false;
-        }
-        grp[i].elementType = payload[offset++];
-        uint16_t rectCount = be16(&payload[offset]);
-        offset += 2;
-        grp[i].rectCount = rectCount;
-
-        size_t needed = (size_t)rectCount * 8;
-        if (offset + needed > payloadLen) {
-            for (uint16_t j = 0; j <= i; ++j) cp_free_rect_group(&grp[j]);
-            free(grp);
-            return false;
-        }
-
-        if (rectCount > 0) {
-            grp[i].rects = (struct CP_Rect*)malloc(sizeof(struct CP_Rect) * rectCount);
-            if (!grp[i].rects) {
-                for (uint16_t j = 0; j < i; ++j) cp_free_rect_group(&grp[j]);
-                free(grp);
-                return false;
-            }
-        }
-
-        for (uint16_t r = 0; r < rectCount; ++r) {
-            grp[i].rects[r].x      = (int16_t)be16(&payload[offset]); offset += 2;
-            grp[i].rects[r].y      = (int16_t)be16(&payload[offset]); offset += 2;
-            grp[i].rects[r].width  = (int16_t)be16(&payload[offset]); offset += 2;
-            grp[i].rects[r].height = (int16_t)be16(&payload[offset]); offset += 2;
-        }
-    }
-
-    outState->groupCount = groups;
-    outState->groups = grp;
+    *outRows = rows; *outCols = cols; *outData = data;
     return true;
 }
 
-void cp_print_rect_state(const struct CP_RectState *state) {
-    if (!state) return;
-    printf("Rect State: %u groups\n", (unsigned)state->groupCount);
-    for (uint16_t i = 0; i < state->groupCount; ++i) {
-        const struct CP_RectGroup *grp = &state->groups[i];
-        printf("  [%u] %s -> %u rects\n", (unsigned)i, cp_element_type_name(grp->elementType), (unsigned)grp->rectCount);
-        for (uint16_t j = 0; j < grp->rectCount; ++j) {
-            const struct CP_Rect *rect = &grp->rects[j];
-            printf("      #%u : x=%d y=%d w=%d h=%d\n",
-                   (unsigned)j, rect->x, rect->y, rect->width, rect->height);
+void cp_print_matrix(uint16_t rows, uint16_t cols, const uint8_t *data) {
+    printf("Matrix %u x %u\n", rows, cols);
+    for (uint16_t r = 0; r < rows; ++r) {
+        for (uint16_t c = 0; c < cols; ++c) {
+            printf("%u ", (unsigned)data[r*cols + c]);
         }
+        printf("\n");
     }
-}
-
-void cp_free_rect_state(struct CP_RectState *state) {
-    if (!state) return;
-    for (uint16_t i = 0; i < state->groupCount; ++i) {
-        cp_free_rect_group(&state->groups[i]);
-    }
-    free(state->groups);
-    state->groups = NULL;
-    state->groupCount = 0;
 }
 
 bool cp_send_player_input(int sock, uint32_t clientId, uint32_t gameId,
@@ -147,6 +76,6 @@ bool cp_send_player_input(int sock, uint32_t clientId, uint32_t gameId,
     return true;
 }
 
-/*void draw_from_rect_state{
-    rects-->pintar
+/*void draw_from_matrix{
+    matrix-->pintar
 */
