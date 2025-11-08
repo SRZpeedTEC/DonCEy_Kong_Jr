@@ -7,7 +7,7 @@
 
 // ---- Protocol constants ----
 #define CP_VERSION            1
-#define CP_TYPE_MATRIX_STATE  1
+#define CP_TYPE_RECT_STATE    1
 #define CP_TYPE_CLIENT_ACK    2
 #define CP_TYPE_PLAYER_INPUT  3
 
@@ -25,9 +25,28 @@ struct CP_Header {
 
 // Protocol helpers
 bool cp_read_header(int sock, struct CP_Header *h);
-bool cp_recv_matrix_payload(const uint8_t *payload, uint32_t payloadLen,
-                            uint16_t *outRows, uint16_t *outCols, uint8_t **outData);
-void cp_print_matrix(uint16_t rows, uint16_t cols, const uint8_t *data);
+struct CP_Rect {
+    int16_t x;
+    int16_t y;
+    int16_t width;
+    int16_t height;
+};
+
+struct CP_RectGroup {
+    uint8_t elementType;
+    uint16_t rectCount;
+    struct CP_Rect *rects;
+};
+
+struct CP_RectState {
+    uint16_t groupCount;
+    struct CP_RectGroup *groups;
+};
+
+bool cp_recv_rect_payload(const uint8_t *payload, uint32_t payloadLen,
+                          struct CP_RectState *outState);
+void cp_print_rect_state(const struct CP_RectState *state);
+void cp_free_rect_state(struct CP_RectState *state);
 
 // Send a small input event: action (e.g. 'L','R','U','D','J'), plus dx,dy (optional)
 bool cp_send_player_input(int sock, uint32_t clientId, uint32_t gameId,
