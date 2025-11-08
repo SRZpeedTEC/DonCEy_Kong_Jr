@@ -9,3 +9,5 @@
 
 //recibiendo
 //pixeles-->matriz
+
+//recibe U --> calcular respecto a la matriz y posicion actual
