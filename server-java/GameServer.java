@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GameServer {
     // ---- Protocol ----
     private static final byte VERSION = 1;
-    private static final byte TYPE_MATRIX_STATE  = 1; // server -> client
+    private static final byte TYPE_RECT_STATE    = 1; // server -> client
     private static final byte TYPE_CLIENT_ACK    = 2; // server -> client (assigned id)
     private static final byte TYPE_PLAYER_INPUT  = 3; // client -> server
 
@@ -19,9 +19,16 @@ public class GameServer {
     private final ConcurrentHashMap<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
-    // one matrix per client (independent game state per instance)
-    private final ConcurrentHashMap<Integer, byte[]> matrices = new ConcurrentHashMap<>();
-    private final int rows = 10, cols = 10; // adjust to your game grid size
+    // per client game state (independent game state per instance)
+    private final ConcurrentHashMap<Integer, GameState> gameStates = new ConcurrentHashMap<>();
+
+    private static final int WORLD_WIDTH = 320;
+    private static final int WORLD_HEIGHT = 240;
+
+    private static final byte ELEMENT_PLAYER   = 1;
+    private static final byte ELEMENT_ENEMY    = 2;
+    private static final byte ELEMENT_FRUIT    = 3;
+    private static final byte ELEMENT_PLATFORM = 4;
 
     public GameServer(int port) throws IOException {
         this.port = port;
@@ -29,14 +36,33 @@ public class GameServer {
         System.out.println("Server listening on port " + port);
     }
 
-    private byte[] initMatrix() {
-        byte[] m = new byte[rows * cols];
-        // player starts at (0,0) = 1
-        m[0] = 1;
-        // sprinkle some traps as demo (value 2)
+    private GameState initGameState() {
+        GameState state = new GameState();
+
+        // player
+        state.addRect(ELEMENT_PLAYER, new Rect(24, 24, 16, 16));
+
         Random r = new Random();
-        for (int i = 1; i < m.length; i++) if (r.nextDouble() < 0.08) m[i] = 2;
-        return m;
+        // create some enemies
+        for (int i = 0; i < 3; i++) {
+            int x = 40 + r.nextInt(WORLD_WIDTH - 80);
+            int y = 40 + r.nextInt(WORLD_HEIGHT - 80);
+            state.addRect(ELEMENT_ENEMY, new Rect(x, y, 16, 16));
+        }
+
+        // create some fruits
+        for (int i = 0; i < 5; i++) {
+            int x = 30 + r.nextInt(WORLD_WIDTH - 60);
+            int y = 30 + r.nextInt(WORLD_HEIGHT - 60);
+            state.addRect(ELEMENT_FRUIT, new Rect(x, y, 12, 12));
+        }
+
+        // create some platforms
+        state.addRect(ELEMENT_PLATFORM, new Rect(0, 200, WORLD_WIDTH, 12));
+        state.addRect(ELEMENT_PLATFORM, new Rect(50, 150, 120, 12));
+        state.addRect(ELEMENT_PLATFORM, new Rect(200, 110, 90, 12));
+
+        return state;
     }
 
     public void start() throws IOException {
@@ -51,8 +77,8 @@ public class GameServer {
             s.setTcpNoDelay(true);
             int id = idGen.getAndIncrement();
 
-            // create per-client matrix
-            matrices.put(id, initMatrix());
+            // create per-client game state
+            gameStates.put(id, initGameState());
 
             ClientHandler h = new ClientHandler(id, s, this);
             clients.put(id, h);
@@ -74,12 +100,12 @@ public class GameServer {
                 } else if (line.startsWith("send ")) {
                     try {
                         int id = Integer.parseInt(line.substring(5).trim());
-                        byte[] m = matrices.get(id);
-                        if (m == null) { System.out.println("No matrix for " + id); continue; }
+                        GameState state = gameStates.get(id);
+                        if (state == null) { System.out.println("No state for " + id); continue; }
                         ClientHandler h = clients.get(id);
                         if (h == null) { System.out.println("No such client " + id); continue; }
-                        h.sendMatrixState(id, /*gameId*/ id, rows, cols, m);
-                        System.out.println("Sent MATRIX_STATE to client " + id);
+                        h.sendRectState(id, /*gameId*/ id, state);
+                        System.out.println("Sent RECT_STATE to client " + id);
                     } catch (Exception e) {
                         System.out.println("Usage: send <clientId>");
                     }
@@ -92,7 +118,7 @@ public class GameServer {
 
     void removeClient(int id) {
         clients.remove(id);
-        matrices.remove(id);
+        gameStates.remove(id);
         System.out.println("Client " + id + " disconnected.");
     }
 
@@ -120,9 +146,9 @@ public class GameServer {
 
             // On connect, send ACK with assigned clientId (payloadLen=0)
             sendAck();
-            // Also send initial matrix so the client renders something immediately (optional)
-            byte[] m = server.matrices.get(clientId);
-            if (m != null) sendMatrixState(clientId, clientId, server.rows, server.cols, m);
+            // Also send initial rectangles so the client renders something immediately (optional)
+            GameState state = server.gameStates.get(clientId);
+            if (state != null) sendRectState(clientId, clientId, state);
         }
 
         String getRemote() { return socket.getRemoteSocketAddress().toString(); }
@@ -137,20 +163,17 @@ public class GameServer {
             out.flush();
         }
 
-        void sendMatrixState(int destClientId, int gameId, int rows, int cols, byte[] matrix) throws IOException {
-            if (matrix.length != rows * cols) throw new IllegalArgumentException("rows*cols mismatch");
-            int payloadLen = 2 + 2 + matrix.length;
+        void sendRectState(int destClientId, int gameId, GameState state) throws IOException {
+            byte[] payload = state.serialize();
 
             out.writeByte(VERSION);
-            out.writeByte(TYPE_MATRIX_STATE);
+            out.writeByte(TYPE_RECT_STATE);
             out.writeShort(0);                // reserved
             out.writeInt(destClientId);       // destination client id (this client)
             out.writeInt(gameId);
-            out.writeInt(payloadLen);
+            out.writeInt(payload.length);
 
-            out.writeShort(rows);
-            out.writeShort(cols);
-            out.write(matrix);
+            out.write(payload);
 
             out.flush();
         }
@@ -195,40 +218,34 @@ public class GameServer {
                         int dy = ((payload[3] & 0xFF) << 8) | (payload[4] & 0xFF);
                         if (dy > 32767) dy -= 65536;
 
-                        // Update ONLY this client's matrix
-                        byte[] m = server.matrices.get(clientId);
-                        if (m == null) {
-                            m = server.initMatrix();
-                            server.matrices.put(clientId, m);
+                        GameState state = server.gameStates.computeIfAbsent(clientId, k -> server.initGameState());
+
+                        Rect player = state.getFirstRect(ELEMENT_PLAYER);
+                        if (player == null) {
+                            player = new Rect(24, 24, 16, 16);
+                            state.addRect(ELEMENT_PLAYER, player);
                         }
 
-                        // find player tile (1)
-                        int px = 0, py = 0;
-                        boolean found = false;
-                        for (int r = 0; r < server.rows && !found; r++) {
-                            for (int c = 0; c < server.cols; c++) {
-                                if (m[r * server.cols + c] == 1) { py = r; px = c; found = true; break; }
-                            }
-                        }
-                        int nx = px, ny = py;
+                        int nx = player.x;
+                        int ny = player.y;
+                        int speed = 8;
                         switch (action) {
-                            case 'L': nx = Math.max(0, px - 1); System.out.println("input receive L");break;
-                            case 'R': nx = Math.min(server.cols - 1, px + 1);System.out.println("input receive R"); break;
-                            case 'U': ny = Math.max(0, py - 1);System.out.println("input receive U"); break;
-                            case 'D': ny = Math.min(server.rows - 1, py + 1); System.out.println("input receive D");break;
-                            case 'J': ny = Math.max(0, py - 2); System.out.println("input receive J");break; // simple jump up
+                            case 'L': nx -= speed; System.out.println("input receive L"); break;
+                            case 'R': nx += speed; System.out.println("input receive R"); break;
+                            case 'U': ny -= speed; System.out.println("input receive U"); break;
+                            case 'D': ny += speed; System.out.println("input receive D"); break;
+                            case 'J': ny -= speed * 2; System.out.println("input receive J"); break; // jump higher
                             default: /* ignore unknown */ break;
                         }
-                        // apply extra delta if provided
-                        nx = Math.max(0, Math.min(server.cols - 1, nx + dx));
-                        ny = Math.max(0, Math.min(server.rows - 1, ny + dy));
 
-                        // write back
-                        m[py * server.cols + px] = 0;
-                        m[ny * server.cols + nx] = 1;
+                        nx += dx;
+                        ny += dy;
 
-                        // send updated matrix back ONLY to this client
-                        sendMatrixState(clientId, gameId == 0 ? clientId : gameId, server.rows, server.cols, m);
+                        player.x = clamp(nx, 0, WORLD_WIDTH - player.width);
+                        player.y = clamp(ny, 0, WORLD_HEIGHT - player.height);
+
+                        // send updated rectangles back ONLY to this client
+                        sendRectState(clientId, gameId == 0 ? clientId : gameId, state);
                         continue;
                     }
 
@@ -243,6 +260,58 @@ public class GameServer {
                 try { socket.close(); } catch (IOException ignored) {}
                 server.removeClient(clientId);
             }
+        }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        if (value < min) return min;
+        return Math.min(value, max);
+    }
+
+    private static class Rect {
+        int x, y, width, height;
+
+        Rect(int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+        }
+    }
+
+    private static class GameState {
+        private final Map<Byte, List<Rect>> groups = new LinkedHashMap<>();
+
+        void addRect(byte elementType, Rect rect) {
+            groups.computeIfAbsent(elementType, k -> new ArrayList<>()).add(rect);
+        }
+
+        Rect getFirstRect(byte elementType) {
+            List<Rect> rects = groups.get(elementType);
+            if (rects == null || rects.isEmpty()) return null;
+            return rects.get(0);
+        }
+
+        byte[] serialize() throws IOException {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dout = new DataOutputStream(baos);
+
+            dout.writeShort(groups.size());
+            for (Map.Entry<Byte, List<Rect>> entry : groups.entrySet()) {
+                byte elementType = entry.getKey();
+                List<Rect> rects = entry.getValue();
+                dout.writeByte(elementType & 0xFF);
+                dout.writeShort(rects.size());
+                for (Rect rect : rects) {
+                    dout.writeShort(rect.x);
+                    dout.writeShort(rect.y);
+                    dout.writeShort(rect.width);
+                    dout.writeShort(rect.height);
+                }
+            }
+
+            dout.flush();
+            return baos.toByteArray();
         }
     }
 }
