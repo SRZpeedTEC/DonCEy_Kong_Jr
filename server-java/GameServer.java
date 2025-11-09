@@ -9,7 +9,8 @@ public class GameServer {
     private static final byte VERSION = 1;
     private static final byte TYPE_CLIENT_ACK   = 2; // server -> client
     private static final byte TYPE_PLAYER_INPUT = 3; // client -> server
-    private static final byte TYPE_INIT_GEOM    = 4; // server -> client
+    private static final byte TYPE_INIT_STATIC = 4;
+
 
     // ---- Server fields ----
     private final int port;
@@ -29,6 +30,7 @@ public class GameServer {
     public final List<Rect> fruits    = new ArrayList<>();
     public final List<Rect> platforms = new ArrayList<>();
     public final List<Rect> vines     = new ArrayList<>();
+    public final List<Rect> waters    = new ArrayList<>();
 
     private void writeU16(DataOutputStream out, int v) throws IOException {
         out.writeShort(v & 0xFFFF);
@@ -38,14 +40,30 @@ public class GameServer {
     }
 
     private void initLevel(){
-        platforms.clear(); vines.clear(); enemies.clear(); fruits.clear();
-        platforms.add(new Rect(0, 32, 256, 16));
-        platforms.add(new Rect(144,128, 96, 16));
-        platforms.add(new Rect(96, 176, 96, 16));
-        vines.add(new Rect(64, 48, 16, 96));
-        vines.add(new Rect(176,48, 8, 112));
-        enemies.add(new Rect(120,112,16,16));
-        fruits.add(new Rect(176,160,16,16));
+        
+         // Plataformas (VERDE)
+        platforms.add(new Rect(0,   24, 256, 12));  // superior larga
+        platforms.add(new Rect(32,  72,  56, 12));  // escalón izq
+        platforms.add(new Rect(152, 64,  88, 12));  // plataforma derecha alta
+        platforms.add(new Rect(184,136,  64, 12));  // derecha media
+        platforms.add(new Rect(120,160,  96, 12));  // centro media-baja
+        platforms.add(new Rect(72, 192, 120, 12));  // larga inferior
+        platforms.add(new Rect(200,176,  56, 12));  // baja derecha
+        // "islas" frente al agua (opcional)
+        platforms.add(new Rect( 64,208,  32, 12));
+        platforms.add(new Rect(112,208,  32, 12));
+        platforms.add(new Rect(160,208,  32, 12));
+
+        // Lianas (AMARILLO) – finas (w=6)
+        vines.add(new Rect( 40, 40, 6, 168));
+        vines.add(new Rect( 88, 56, 6, 152));
+        vines.add(new Rect(128, 40, 6, 168));
+        vines.add(new Rect(168, 48, 6, 160));
+        vines.add(new Rect(200, 40, 6, 168));
+        vines.add(new Rect(232, 40, 6, 168));
+
+        // Mar (CELESTE)
+        waters.add(new Rect(0, 224, 256, 16));
     }
 
     public GameServer(int port) throws IOException {
@@ -141,7 +159,7 @@ public class GameServer {
                            + 2 + nF*rectBytes;
 
             out.writeByte(VERSION);
-            out.writeByte(TYPE_INIT_GEOM);
+            out.writeByte(TYPE_INIT_STATIC);
             out.writeShort(0);
             out.writeInt(destClientId);
             out.writeInt(0);
