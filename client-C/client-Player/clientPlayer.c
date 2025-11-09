@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "raylib.h"
+
+CP_Geom g_geom = (CP_Geom){0};
 
 // endian helpers
 static inline uint16_t be16(const uint8_t *p){ return (uint16_t)((p[0]<<8)|p[1]); }
@@ -15,6 +18,42 @@ static inline void put_be16(uint8_t *p, uint16_t v){ p[0]=(uint8_t)(v>>8); p[1]=
 static inline void put_be32(uint8_t *p, uint32_t v){
     p[0]=(uint8_t)(v>>24); p[1]=(uint8_t)(v>>16); p[2]=(uint8_t)(v>>8); p[3]=(uint8_t)v;
 }
+
+ 
+static bool read_rect(const uint8_t **p, uint32_t *len, CP_Rect *r){
+    if (*len < 8) return false;
+    const uint8_t *q = *p;
+    r->x = be16(q); r->y = be16(q+2); r->w = be16(q+4); r->h = be16(q+6);
+    *p += 8; *len -= 8; return true;
+    }
+
+
+static bool read_rect_array(const uint8_t **p, uint32_t *len, uint16_t *n, CP_Rect **out){
+    if (*len < 2) return false;
+    *n = be16(*p); *p += 2; *len -= 2;
+    if (*n == 0) { *out = NULL; return true; }
+    uint32_t need = (uint32_t)(*n) * 8u;
+    if (*len < need) return false;
+    CP_Rect *arr = (CP_Rect*)malloc((*n)*sizeof(CP_Rect));
+    if (!arr) return false;
+    for (uint16_t i=0;i<*n;i++){
+        if (!read_rect(p, len, &arr[i])) { free(arr); return false; }
+    }
+    *out = arr; return true;
+}
+
+
+bool cp_recv_init_geom_sections(const uint8_t *p, uint32_t len){
+    if (!read_rect(&p,&len,&g_geom.player)) return false;
+    if (!read_rect_array(&p,&len,&g_geom.nPlat,   &g_geom.plat))   return false;
+    if (!read_rect_array(&p,&len,&g_geom.nVines,  &g_geom.vines))  return false;
+    if (!read_rect_array(&p,&len,&g_geom.nEnemies,&g_geom.enemies))return false;
+    if (!read_rect_array(&p,&len,&g_geom.nFruits, &g_geom.fruits)) return false;
+    return (len==0);
+}
+
+
+
 
 bool cp_read_header(int sock, struct CP_Header *h) {
     uint8_t raw[16];
@@ -29,31 +68,6 @@ bool cp_read_header(int sock, struct CP_Header *h) {
     return true;
 }
 
-bool cp_recv_matrix_payload(const uint8_t *payload, uint32_t payloadLen,
-                            uint16_t *outRows, uint16_t *outCols, uint8_t **outData) {
-    if (payloadLen < 4) return false;
-    uint16_t rows = be16(&payload[0]);
-    uint16_t cols = be16(&payload[2]);
-    uint32_t need = 4u + (uint32_t)rows * (uint32_t)cols;
-    if (need != payloadLen) return false;
-
-    uint8_t *data = (uint8_t*)malloc((size_t)rows * (size_t)cols);
-    if (!data) return false;
-    memcpy(data, payload + 4, (size_t)rows * (size_t)cols);
-
-    *outRows = rows; *outCols = cols; *outData = data;
-    return true;
-}
-
-void cp_print_matrix(uint16_t rows, uint16_t cols, const uint8_t *data) {
-    printf("Matrix %u x %u\n", rows, cols);
-    for (uint16_t r = 0; r < rows; ++r) {
-        for (uint16_t c = 0; c < cols; ++c) {
-            printf("%u ", (unsigned)data[r*cols + c]);
-        }
-        printf("\n");
-    }
-}
 
 bool cp_send_player_input(int sock, uint32_t clientId, uint32_t gameId,
                           uint8_t action, int16_t dx, int16_t dy)

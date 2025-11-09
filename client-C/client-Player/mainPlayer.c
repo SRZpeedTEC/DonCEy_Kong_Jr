@@ -10,125 +10,75 @@
 
 #include "clientPlayer.h"
 #include "net.h"
+#include "raylib.h"
 
-static int read_and_maybe_print_matrix(int sock) {
-    struct CP_Header h;
-    if (!cp_read_header(sock, &h)) {
-        printf("Server closed.\n");
-        return -1;
-    }
 
-    uint8_t *payload = NULL;
-    if (h.payloadLen > 0) {
-        payload = (uint8_t*)malloc(h.payloadLen);
-        if (!payload) { fprintf(stderr, "OOM\n"); return -1; }
-        if (net_read_n(sock, payload, h.payloadLen) <= 0) {
-            free(payload);
-            return -1;
-        }
-    }
 
-    if (h.type == CP_TYPE_MATRIX_STATE && payload) {
-        uint16_t rows=0, cols=0;
-        uint8_t *data = NULL;
-        if (cp_recv_matrix_payload(payload, h.payloadLen, &rows, &cols, &data)) {
-            cp_print_matrix(rows, cols, data);
-            free(data);
-        }
-    } else if (h.type == CP_TYPE_CLIENT_ACK) {
-        // no-op; already handled earlier typically
-    } else {
-        // Unknown/other message types can be ignored or logged
-        // printf("Got type=%u len=%u (ignored)\n", h.type, h.payloadLen);
-    }
-
-    free(payload);
-    return 0;
+static void DrawGeomRaylib(const CP_Geom* g){
+    DrawRectangleLines(g->player.x, g->player.y, g->player.w, g->player.h, GREEN);
+    for (int i=0;i<g->nPlat;i++)
+        DrawRectangleLines(g->plat[i].x, g->plat[i].y, g->plat[i].w, g->plat[i].h, SKYBLUE);
+    for (int i=0;i<g->nVines;i++)
+        DrawRectangleLines(g->vines[i].x, g->vines[i].y, g->vines[i].w, g->vines[i].h, YELLOW);
+    for (int i=0;i<g->nEnemies;i++)
+        DrawRectangleLines(g->enemies[i].x, g->enemies[i].y, g->enemies[i].w, g->enemies[i].h, RED);
+    for (int i=0;i<g->nFruits;i++)
+        DrawRectangleLines(g->fruits[i].x, g->fruits[i].y, g->fruits[i].w, g->fruits[i].h, ORANGE);
 }
 
+
+
 int main(int argc, char **argv) {
-    if (argc < 3) {
-        fprintf(stderr, "Usage: %s <server_ip> <port>\n", argv[0]);
-        return 1;
-    }
-    const char *ip = argv[1];
-    uint16_t port  = (uint16_t)atoi(argv[2]);
+    if (argc < 3) { fprintf(stderr, "Usage: %s <server_ip> <port>\n", argv[0]); return 1; }
 
-    if (!net_init()) {
-        fprintf(stderr, "Network init failed\n");
-        return 1;
-    }
-
-    int sock = net_connect(ip, port);
+    if (!net_init()) { fprintf(stderr, "Network init failed\n"); return 1; }
+    int sock = net_connect(argv[1], (uint16_t)atoi(argv[2]));
     if (sock < 0) { net_cleanup(); return 1; }
 
-    printf("Connected to %s:%u\n", ip, port);
-
-    // ---- Read initial ACK ----
+    // ACK
     struct CP_Header h;
-    if (!cp_read_header(sock, &h)) {
-        fprintf(stderr, "Failed to read header\n");
-        net_close(sock); net_cleanup();
-        return 1;
+    if (!cp_read_header(sock, &h) || h.version!=CP_VERSION) { fprintf(stderr,"Bad ACK\n"); return 1; }
+    if (h.payloadLen) { uint8_t *skip = malloc(h.payloadLen); net_read_n(sock, skip, h.payloadLen); free(skip); }
+
+    // INIT_GEOM
+    if (!cp_read_header(sock, &h) || h.type!=CP_TYPE_INIT_GEOM) {
+        fprintf(stderr,"Expected INIT_GEOM\n"); return 1;
     }
-    if (h.version != CP_VERSION) {
-        fprintf(stderr, "Protocol version mismatch (got %u, expect %u)\n", h.version, CP_VERSION);
-        net_close(sock); net_cleanup();
-        return 1;
-    }
-    uint32_t myId = 0, myGame = 0;
-    if (h.type == CP_TYPE_CLIENT_ACK) {
-        myId = h.clientId;
-        myGame = h.gameId; // may be 0
-        printf("Assigned clientId=%u\n", myId);
-        // ACK has no payload in this protocol; if it ever does, swallow it:
-        if (h.payloadLen > 0) {
-            uint8_t *skip = (uint8_t*)malloc(h.payloadLen);
-            if (!skip) { net_close(sock); net_cleanup(); return 1; }
-            if (net_read_n(sock, skip, h.payloadLen) <= 0) { free(skip); net_close(sock); net_cleanup(); return 1; }
-            free(skip);
-        }
-    } else {
-        // If the first message wasn't an ACK, swallow any payload and continue
-        if (h.payloadLen > 0) {
-            uint8_t *skip = (uint8_t*)malloc(h.payloadLen);
-            if (!skip) { net_close(sock); net_cleanup(); return 1; }
-            if (net_read_n(sock, skip, h.payloadLen) <= 0) { free(skip); net_close(sock); net_cleanup(); return 1; }
-            free(skip);
-        }
-    }
+    uint8_t *payload = (uint8_t*)malloc(h.payloadLen);
+    if (!payload || net_read_n(sock, payload, h.payloadLen) <= 0) { fprintf(stderr,"Read fail\n"); return 1; }
+    if (!cp_recv_init_geom_sections(payload, h.payloadLen)) { fprintf(stderr,"Bad INIT_GEOM\n"); return 1; }
+    free(payload);
 
-    // ---- Read and print the initial MATRIX_STATE (blocking, one message) ----
-    // Some servers send it immediately after ACK; this consumes and prints it.
-    if (read_and_maybe_print_matrix(sock) < 0) {
-        net_close(sock); net_cleanup();
-        return 0;
-    }
+    // Raylib window (escala entera sobre 256x240)
+    const int VW=256, VH=240, SCALE=3;
+    InitWindow(VW*SCALE, VH*SCALE, "DK Rects");
+    SetTargetFPS(60);
 
-    // ---- Prompt loop: send inputs and read one response (matrix) each time ----
-    printf("> ");
-    fflush(stdout);
+    // RenderTexture para pixel-perfect (opcional)
+    RenderTexture2D rt = LoadRenderTexture(VW, VH);
+    SetTextureFilter(rt.texture, TEXTURE_FILTER_POINT); // sin blur
 
-    char line[64];
-    while (fgets(line, sizeof(line), stdin)) {
-        char action = 0;
-        if (line[0] == 'q' || line[0] == 'Q') break;
-        if (strchr("LRUDJlrudj", line[0])) action = (char)toupper((unsigned char)line[0]);
+    while (!WindowShouldClose()){
+        // (Opcional) leer mensajes no bloqueantes aquí si luego agregamos STATE
 
-        if (action) {
-            if (!cp_send_player_input(sock, myId, myGame, (uint8_t)action, 0, 0)) {
-                fprintf(stderr, "Failed to send input\n");
-                break;
-            }
-            // After sending an input, read the server's response (expected MATRIX_STATE)
-            if (read_and_maybe_print_matrix(sock) < 0) break;
-        }
+        BeginTextureMode(rt);
+            ClearBackground((Color){20,20,20,255});
+            DrawGeomRaylib(&g_geom);
+        EndTextureMode();
 
-        printf("> ");
-        fflush(stdout);
+        BeginDrawing();
+            ClearBackground(BLACK);
+            // dibuja rt escalado entero y centrado
+            Rectangle src = {0,0,(float)rt.texture.width,-(float)rt.texture.height};
+            Rectangle dst = {0,0,(float)VW*SCALE,(float)VH*SCALE};
+            DrawTexturePro(rt.texture, src, dst, (Vector2){0,0}, 0, WHITE);
+        EndDrawing();
     }
 
+    UnloadRenderTexture(rt);
+    CloseWindow();
     net_close(sock);
     net_cleanup();
     return 0;
 }
+

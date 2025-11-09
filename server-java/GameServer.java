@@ -7,52 +7,63 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GameServer {
     // ---- Protocol ----
     private static final byte VERSION = 1;
-    private static final byte TYPE_MATRIX_STATE  = 1; // server -> client
-    private static final byte TYPE_CLIENT_ACK    = 2; // server -> client (assigned id)
-    private static final byte TYPE_PLAYER_INPUT  = 3; // client -> server
+    private static final byte TYPE_CLIENT_ACK   = 2; // server -> client
+    private static final byte TYPE_PLAYER_INPUT = 3; // client -> server
+    private static final byte TYPE_INIT_GEOM    = 4; // server -> client
 
     // ---- Server fields ----
     private final int port;
     private final ServerSocket serverSocket;
 
-    // connected clients
     private final ConcurrentHashMap<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
-    // one matrix per client (independent game state per instance)
-    private final ConcurrentHashMap<Integer, byte[]> matrices = new ConcurrentHashMap<>();
-    private final int rows = 10, cols = 10; // adjust to your game grid size
+    // ---- elements in game ----
+    public static final class Rect {
+        final int x,y,w,h;
+        Rect(int x,int y,int w,int h){ this.x=x; this.y=y; this.w=w; this.h=h; }
+    }
+
+    public Rect player = new Rect(16,192,16,16);
+    public final List<Rect> enemies   = new ArrayList<>();
+    public final List<Rect> fruits    = new ArrayList<>();
+    public final List<Rect> platforms = new ArrayList<>();
+    public final List<Rect> vines     = new ArrayList<>();
+
+    private void writeU16(DataOutputStream out, int v) throws IOException {
+        out.writeShort(v & 0xFFFF);
+    }
+    private void writeRect(DataOutputStream out, Rect r) throws IOException {
+        writeU16(out, r.x); writeU16(out, r.y); writeU16(out, r.w); writeU16(out, r.h);
+    }
+
+    private void initLevel(){
+        platforms.clear(); vines.clear(); enemies.clear(); fruits.clear();
+        platforms.add(new Rect(0, 32, 256, 16));
+        platforms.add(new Rect(144,128, 96, 16));
+        platforms.add(new Rect(96, 176, 96, 16));
+        vines.add(new Rect(64, 48, 16, 96));
+        vines.add(new Rect(176,48, 8, 112));
+        enemies.add(new Rect(120,112,16,16));
+        fruits.add(new Rect(176,160,16,16));
+    }
 
     public GameServer(int port) throws IOException {
         this.port = port;
         this.serverSocket = new ServerSocket(this.port);
+        initLevel(); // nivel listo desde el arranque
         System.out.println("Server listening on port " + port);
     }
 
-    private byte[] initMatrix() {
-        byte[] m = new byte[rows * cols];
-        // player starts at (0,0) = 1
-        m[0] = 1;
-        // sprinkle some traps as demo (value 2)
-        Random r = new Random();
-        for (int i = 1; i < m.length; i++) if (r.nextDouble() < 0.08) m[i] = 2;
-        return m;
-    }
-
     public void start() throws IOException {
-        // simple admin CLI (list, send <id>)
         Thread admin = new Thread(this::adminLoop, "admin-loop");
         admin.setDaemon(true);
         admin.start();
 
-        // accept loop
         while (true) {
             Socket s = serverSocket.accept();
             s.setTcpNoDelay(true);
             int id = idGen.getAndIncrement();
-
-            // create per-client matrix
-            matrices.put(id, initMatrix());
 
             ClientHandler h = new ClientHandler(id, s, this);
             clients.put(id, h);
@@ -68,23 +79,9 @@ public class GameServer {
                 line = line.trim();
                 if (line.equalsIgnoreCase("list")) {
                     if (clients.isEmpty()) { System.out.println("(no clients)"); continue; }
-                    clients.forEach((id, h) -> {
-                        System.out.println("id=" + id + " remote=" + h.getRemote());
-                    });
-                } else if (line.startsWith("send ")) {
-                    try {
-                        int id = Integer.parseInt(line.substring(5).trim());
-                        byte[] m = matrices.get(id);
-                        if (m == null) { System.out.println("No matrix for " + id); continue; }
-                        ClientHandler h = clients.get(id);
-                        if (h == null) { System.out.println("No such client " + id); continue; }
-                        h.sendMatrixState(id, /*gameId*/ id, rows, cols, m);
-                        System.out.println("Sent MATRIX_STATE to client " + id);
-                    } catch (Exception e) {
-                        System.out.println("Usage: send <clientId>");
-                    }
+                    clients.forEach((id, h) -> System.out.println("id=" + id + " remote=" + h.getRemote()));
                 } else if (line.equalsIgnoreCase("help")) {
-                    System.out.println("Commands: list | send <clientId> | help");
+                    System.out.println("Commands: list | help");
                 }
             }
         } catch (IOException ignored) {}
@@ -92,17 +89,15 @@ public class GameServer {
 
     void removeClient(int id) {
         clients.remove(id);
-        matrices.remove(id);
         System.out.println("Client " + id + " disconnected.");
     }
 
-    // --- MAIN ---
     public static void main(String[] args) throws Exception {
         int port = (args.length > 0) ? Integer.parseInt(args[0]) : 9090;
         new GameServer(port).start();
     }
 
-    // ===== Client handler with READ LOOP =====
+    // ===== Client handler =====
     static class ClientHandler extends Thread {
         private final int clientId;
         private final Socket socket;
@@ -118,11 +113,8 @@ public class GameServer {
             this.in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
             this.out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
-            // On connect, send ACK with assigned clientId (payloadLen=0)
             sendAck();
-            // Also send initial matrix so the client renders something immediately (optional)
-            byte[] m = server.matrices.get(clientId);
-            if (m != null) sendMatrixState(clientId, clientId, server.rows, server.cols, m);
+            sendInitGeom(clientId, out); // usa datos ya inicializados en server
         }
 
         String getRemote() { return socket.getRemoteSocketAddress().toString(); }
@@ -130,117 +122,65 @@ public class GameServer {
         private void sendAck() throws IOException {
             out.writeByte(VERSION);
             out.writeByte(TYPE_CLIENT_ACK);
-            out.writeShort(0);          // reserved
-            out.writeInt(clientId);     // dest client id (this client)
-            out.writeInt(0);            // gameId (0 for now)
-            out.writeInt(0);            // payloadLen
+            out.writeShort(0);
+            out.writeInt(clientId);
+            out.writeInt(0);      // gameId
+            out.writeInt(0);      // payloadLen
             out.flush();
         }
 
-        void sendMatrixState(int destClientId, int gameId, int rows, int cols, byte[] matrix) throws IOException {
-            if (matrix.length != rows * cols) throw new IllegalArgumentException("rows*cols mismatch");
-            int payloadLen = 2 + 2 + matrix.length;
+        // send GameGeometry (todo via 'server.')
+        private void sendInitGeom(int destClientId, DataOutputStream out) throws IOException {
+            int nP = server.platforms.size(), nV = server.vines.size(),
+                nE = server.enemies.size(),   nF = server.fruits.size();
+            int rectBytes = 8;
+            int payloadLen = (4*2)
+                           + 2 + nP*rectBytes
+                           + 2 + nV*rectBytes
+                           + 2 + nE*rectBytes
+                           + 2 + nF*rectBytes;
 
             out.writeByte(VERSION);
-            out.writeByte(TYPE_MATRIX_STATE);
-            out.writeShort(0);                // reserved
-            out.writeInt(destClientId);       // destination client id (this client)
-            out.writeInt(gameId);
+            out.writeByte(TYPE_INIT_GEOM);
+            out.writeShort(0);
+            out.writeInt(destClientId);
+            out.writeInt(0);
             out.writeInt(payloadLen);
 
-            out.writeShort(rows);
-            out.writeShort(cols);
-            out.write(matrix);
+            server.writeRect(out, server.player);
+
+            server.writeU16(out, nP); for (Rect r: server.platforms) server.writeRect(out, r);
+            server.writeU16(out, nV); for (Rect r: server.vines)     server.writeRect(out, r);
+            server.writeU16(out, nE); for (Rect r: server.enemies)   server.writeRect(out, r);
+            server.writeU16(out, nF); for (Rect r: server.fruits)    server.writeRect(out, r);
 
             out.flush();
         }
 
-        @Override
-        public void run() {
-            try {
-                // ===== READ LOOP =====
-                while (true) {
-                    // --- 16-byte header (big-endian via DataInputStream) ---
+        @Override public void run(){
+            try{
+                while (true){
                     byte version = in.readByte();
                     byte type    = in.readByte();
-                    int reserved = in.readUnsignedShort();
-                    int fromClientId = in.readInt(); // for client->server, this is the SENDER
-                    int gameId  = in.readInt();
-                    int payloadLen = in.readInt();
+                    int  _res    = in.readUnsignedShort();
+                    int  fromId  = in.readInt();
+                    int  gameId  = in.readInt();
+                    int  len     = in.readInt();
+                    byte[] payload = (len>0)? in.readNBytes(len): null;
+                    if (version!=VERSION) break;
 
-                    if (version != VERSION) {
-                        System.out.println("Client " + clientId + ": bad version " + version);
-                        break;
+                    if (type==TYPE_PLAYER_INPUT){
+                        System.out.println("INPUT from "+fromId+" len="+len);
+                        // TODO: actualizar server.player / entidades y enviar diffs/STATE
+                    } else {
+                        System.out.println("msg type="+type+" len="+len);
                     }
-
-                    byte[] payload = null;
-                    if (payloadLen > 0) {
-                        payload = in.readNBytes(payloadLen);
-                        if (payload.length != payloadLen) {
-                            System.out.println("Client " + clientId + ": short payload");
-                            break;
-                        }
-                    }
-
-                    // --- Handle message types ---
-                    if (type == TYPE_PLAYER_INPUT) {
-                        // payload: action(1) + dx(2) + dy(2) big-endian = 5 bytes
-                        if (payloadLen != 5) {
-                            System.out.println("Client " + clientId + ": bad PLAYER_INPUT size " + payloadLen);
-                            continue;
-                        }
-                        int action = payload[0] & 0xFF;
-                        int dx = ((payload[1] & 0xFF) << 8) | (payload[2] & 0xFF);
-                        if (dx > 32767) dx -= 65536;
-                        int dy = ((payload[3] & 0xFF) << 8) | (payload[4] & 0xFF);
-                        if (dy > 32767) dy -= 65536;
-
-                        // Update ONLY this client's matrix
-                        byte[] m = server.matrices.get(clientId);
-                        if (m == null) {
-                            m = server.initMatrix();
-                            server.matrices.put(clientId, m);
-                        }
-
-                        // find player tile (1)
-                        int px = 0, py = 0;
-                        boolean found = false;
-                        for (int r = 0; r < server.rows && !found; r++) {
-                            for (int c = 0; c < server.cols; c++) {
-                                if (m[r * server.cols + c] == 1) { py = r; px = c; found = true; break; }
-                            }
-                        }
-                        int nx = px, ny = py;
-                        switch (action) {
-                            case 'L': nx = Math.max(0, px - 1); System.out.println("input receive L");break;
-                            case 'R': nx = Math.min(server.cols - 1, px + 1);System.out.println("input receive R"); break;
-                            case 'U': ny = Math.max(0, py - 1);System.out.println("input receive U"); break;
-                            case 'D': ny = Math.min(server.rows - 1, py + 1); System.out.println("input receive D");break;
-                            case 'J': ny = Math.max(0, py - 2); System.out.println("input receive J");break; // simple jump up
-                            default: /* ignore unknown */ break;
-                        }
-                        // apply extra delta if provided
-                        nx = Math.max(0, Math.min(server.cols - 1, nx + dx));
-                        ny = Math.max(0, Math.min(server.rows - 1, ny + dy));
-
-                        // write back
-                        m[py * server.cols + px] = 0;
-                        m[ny * server.cols + nx] = 1;
-
-                        // send updated matrix back ONLY to this client
-                        sendMatrixState(clientId, gameId == 0 ? clientId : gameId, server.rows, server.cols, m);
-                        continue;
-                    }
-
-                    // (Optional) future types can be handled here.
-                    System.out.println("Client " + clientId + " -> type=" + type + " payloadLen=" + payloadLen + " gameId=" + gameId);
                 }
-            } catch (EOFException eof) {
-                // client closed
-            } catch (IOException io) {
-                System.out.println("Client " + clientId + " error: " + io.getMessage());
+            } catch (EOFException ignore) {
+            } catch (IOException e){
+                System.out.println("Client "+clientId+" error: "+e.getMessage());
             } finally {
-                try { socket.close(); } catch (IOException ignored) {}
+                try{ socket.close(); }catch(IOException ignore){}
                 server.removeClient(clientId);
             }
         }
