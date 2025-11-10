@@ -79,12 +79,22 @@ void game_draw_static(const CP_Static* s){
     EndDrawing();
 }
 
-// ===== lógica mínima para integrarse con tu loop =====
+
+// ===== lógica del jugador =====
+
 void game_update_and_get_proposal(const CP_Static* s, ProposedState* out){
     (void)s;
-    // aquí va tu movimiento local; por ahora deja quieto
-    out->x = G.x; out->y = G.y; out->vx = 0; out->vy = 0; out->flags = 0;
+    int speed = 2; // px/frame para la prueba
+    if (IsKeyDown(KEY_RIGHT)) G.x += speed;
+    if (IsKeyDown(KEY_LEFT))  G.x -= speed;
+    if (IsKeyDown(KEY_DOWN))  G.y += speed;
+    if (IsKeyDown(KEY_UP))    G.y -= speed;
+
+    out->x = G.x; out->y = G.y;
+    out->vx = 0;  out->vy = 0;
+    out->flags = 0;
 }
+
 
 void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int16_t yCorr, int16_t vyCorr){
     (void)tick; (void)platId;

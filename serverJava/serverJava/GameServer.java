@@ -12,6 +12,7 @@ import MessageManagement.Session;
 import MessageManagement.AnswerProcessor;
 import Utils.Rect;
 import Utils.MsgType; 
+import Classes.Player.player;
 // import Utils.TlvType;
 
 public class GameServer {
@@ -32,8 +33,11 @@ public class GameServer {
     public final List<Rect> platforms = new ArrayList<>();
     public final List<Rect> vines     = new ArrayList<>();
     public final List<Rect> waters    = new ArrayList<>();
+    public player p1 = new player(16,192);
+
 
     private void initLevel(){
+        
         platforms.add(new Rect(0,   24, 256, 12));
         platforms.add(new Rect(32,  72,  56, 12));
         platforms.add(new Rect(152, 64,  88, 12));

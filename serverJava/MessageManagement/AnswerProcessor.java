@@ -24,8 +24,8 @@ public class AnswerProcessor {
         
     }
 
-    public void processFrame(DataInputStream in, Session ctx) throws IOException {
-        // Lee cabecera (16 bytes)
+    public void processFrame(DataInputStream in, Session sess) throws IOException {
+        // --- header (16 bytes, big-endian) ---
         byte version = in.readByte();
         byte type    = in.readByte();
         int  _res    = in.readUnsignedShort();
@@ -33,15 +33,34 @@ public class AnswerProcessor {
         int  gameId  = in.readInt();
         int  len     = in.readInt();
 
-        if (version != Proto.VERSION) throw new IOException("Bad version");
-        if (len < 0 || len > ctx.maxPayload) throw new IOException("Bad len");
+        if (type == MsgType.PLAYER_PROPOSED) {
+            // payload: tick u32, x i16, y i16, vx i16, vy i16, flags u8
+            int   tick  = in.readInt();
+            short x     = in.readShort();
+            short y     = in.readShort();
+            short vx    = in.readShort();
+            short vy    = in.readShort();
+            byte  flags = in.readByte();
 
-        byte[] payload = (len>0)? in.readNBytes(len) : new byte[0];
+            // 1) imprime lo recibido (prueba de fuego)
+            System.out.printf("PLAYER_PROP from C%d: tick=%d pos=(%d,%d) v=(%d,%d) flags=0x%02X%n",
+                    fromId, tick, (int)x, (int)y, (int)vx, (int)vy, flags & 0xFF);
 
-        Handler h = handlers.get(type);
-        if (h != null) h.handle(payload, ctx);
-        else ctx.log("Unknown type="+type+" len="+len);
+            // 2a) si usas objeto Player:
+            if (server.p1 != null){
+                server.p1.x = x; server.p1.y = y; server.p1.vx = vx; server.p1.vy = vy;
+            }
+
+            // 2b) si prefieres reflejarlo en el Rect del mapa:
+            // server.player = new Rect(x, y, server.player.w(), server.player.h());
+
+            // (devolución STATE_BUNDLE la dejamos para después)
+        } else {
+            // descarta payload de otros tipos por ahora
+            if (len > 0) in.skipNBytes(len);
+        }
     }
+
 
     // ---- Handlers ----
 
