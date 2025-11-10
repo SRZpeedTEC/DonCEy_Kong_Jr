@@ -55,4 +55,11 @@ long net_write_n(int sock, const void *buf, size_t n) {
     return (long)sent;
 }
 
+long net_peek(int sock){
+    u_long bytes = 0;
+    ioctlsocket((SOCKET)sock, FIONREAD, &bytes);
+    return (long)bytes;
+}
+
+
 void net_close(int sock) { closesocket((SOCKET)sock); }

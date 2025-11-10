@@ -2,17 +2,18 @@
 	"globsDependent" : 
 	[
 		{
-			"expression" : "C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/*.c",
+			"expression" : "C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/*.c",
 			"paths" : 
 			[
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/UI/Game/render.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/UI/gameConstants.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/client-Player/clientPlayer.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/client-Player/mainPlayer.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/client-Player/netPOSIX.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/client-Player/netWin32.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/client-Player/tempCodeRunnerFile.c",
-				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/client-C/client-Spectator/clientSpectator.c"
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/UI/Game/game.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/UI/Game/static_map.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/UI/gameConstants.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/UtilsC/proto.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/clientPlayer/clientPlayer.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/clientPlayer/netPOSIX.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/clientPlayer/netWin32.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/clientPlayer/tempCodeRunnerFile.c",
+				"C:/Users/Santiago/Desktop/Universidad/Semestre IV/Paradigmas de Programacion/Repositorios/DonCEy_Kong_Jr/clientC/clientSpectator/clientSpectator.c"
 			],
 			"recurse" : true
 		}

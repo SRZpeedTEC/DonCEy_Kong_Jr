@@ -4,19 +4,18 @@ set(CMAKE_C_STANDARD 11)
 
 # Toma todos los .c bajo client-C, pero luego filtramos
 file(GLOB_RECURSE SRC CONFIGURE_DEPENDS
-     "${CMAKE_SOURCE_DIR}/client-C/*.c")
+     "${CMAKE_SOURCE_DIR}/clientC/*.c")
 
 # Excluir archivos temporales comunes (VS Code, etc.)
 list(FILTER SRC EXCLUDE REGEX "tempCodeRunnerFile\\.c$")
 
 # Elegir backend de red correcto por plataforma y excluir el opuesto
 if (WIN32)
-  # Excluye POSIX en Windows
+  
   list(FILTER SRC EXCLUDE REGEX "netPOSIX\\.c$")
-  # Asegura que el Win32 esté incluido (si existe con otro nombre, ajústalo)
-  # Nada que hacer si ya está en SRC (p.ej., client-C/client-Player/netWin32.c)
+ 
 else()
-  # En POSIX excluye el backend Win32
+ 
   list(FILTER SRC EXCLUDE REGEX "netWin32\\.c$")
 endif()
 
@@ -57,5 +56,3 @@ else()
     target_link_libraries(player PRIVATE raylib m dl pthread)
   endif()
 endif()
-
-

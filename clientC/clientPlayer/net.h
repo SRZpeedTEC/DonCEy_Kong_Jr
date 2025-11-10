@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+
+long net_peek(int sock);
+
 // Cross-platform init/teardown (no-ops on POSIX)
 bool net_init(void);
 void net_cleanup(void);

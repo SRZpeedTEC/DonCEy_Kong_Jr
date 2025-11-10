@@ -51,4 +51,12 @@ long net_write_n(int sock, const void *buf, size_t n) {
     return (long)sent;
 }
 
+#include <sys/ioctl.h>
+long net_peek(int sock){
+    int bytes = 0;
+    ioctl(sock, FIONREAD, &bytes);
+    return (long)bytes;
+}
+
+
 void net_close(int sock) { close(sock); }
