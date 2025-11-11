@@ -47,12 +47,15 @@ if (WIN32)
 
   target_link_libraries(player PRIVATE ws2_32)
 else()
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(RAYLIB raylib)
-  if (RAYLIB_FOUND)
+  if(APPLE)
+    # --- macOS: use raylib CMake package installed by Homebrew ---
+    find_package(raylib CONFIG REQUIRED)
+    target_link_libraries(player PRIVATE raylib)
+
+  else()  # Linux
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(RAYLIB REQUIRED raylib)
     target_include_directories(player PRIVATE ${RAYLIB_INCLUDE_DIRS})
     target_link_libraries(player PRIVATE ${RAYLIB_LIBRARIES})
-  else()
-    target_link_libraries(player PRIVATE raylib m dl pthread)
   endif()
 endif()
