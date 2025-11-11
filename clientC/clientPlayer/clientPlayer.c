@@ -1,0 +1,161 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include "raylib.h"
+
+#include "../UtilsC/msg_types.h"
+#include "../UtilsC/proto.h"
+#include "../UI/Game/static_map.h"
+#include "../UI/Game/game.h"
+#include "net.h"
+#include "../UtilsC/tlv.h"
+
+
+// ---- dispatcher ----
+typedef void (*FrameHandler)(const uint8_t*, uint32_t);
+static FrameHandler g_frameHandlers[256];
+static void disp_register(uint8_t frameType, FrameHandler handlerFn)
+{ 
+    g_frameHandlers[frameType] = handlerFn; 
+}
+
+static void disp_handle(uint8_t frameType, const uint8_t* payloadPtr, uint32_t payloadLen){ 
+    if (g_frameHandlers[frameType]) 
+    {
+        g_frameHandlers[frameType](payloadPtr,payloadLen); 
+    }
+}
+
+
+
+// ---- handlers ----
+static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
+    if (!cp_recv_init_static_payload(payloadPtr,payloadLen)) fprintf(stderr,"[INIT_STATIC] payload invalido\n");
+    else fprintf(stdout,"[INIT_STATIC] OK\n");
+}
+
+
+static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
+    TLVBuf tlvBuf; tlv_init(&tlvBuf,payloadPtr,payloadLen);
+    uint32_t tick=0;
+    while (tlvBuf.len){
+        uint8_t tlvType; uint16_t tlvLen; const uint8_t* tlvValuePtr;
+        if (!tlv_next(&tlvBuf,&tlvType,&tlvLen,&tlvValuePtr)) break;
+
+        if (tlvType==TLV_STATE_HEADER && tlvLen>=4){
+            tick = ((uint32_t)tlvValuePtr[0]<<24)|((uint32_t)tlvValuePtr[1]<<16)|((uint32_t)tlvValuePtr[2]<<8)|tlvValuePtr[3];
+        } else if (tlvType==TLV_PLAYER_CORR && tlvLen>=7){
+            uint8_t grounded = tlvValuePtr[0];
+            int16_t platformId   = (int16_t)((tlvValuePtr[1]<<8)|tlvValuePtr[2]);
+            int16_t yCorrection  = (int16_t)((tlvValuePtr[3]<<8)|tlvValuePtr[4]);
+            int16_t vyCorrection = (int16_t)((tlvValuePtr[5]<<8)|tlvValuePtr[6]);
+            game_apply_correction(tick, grounded, platformId, yCorrection, vyCorrection);
+        }
+    }
+}
+
+
+// ---- envío de propuesta (cliente -> server) ----
+static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
+{
+    uint8_t outBuf[4+2+2+2+2+1];
+    outBuf[0]=tick>>24; outBuf[1]=tick>>16; outBuf[2]=tick>>8; outBuf[3]=tick;
+    outBuf[4]=posX>>8;  outBuf[5]=posX;
+    outBuf[6]=posY>>8;  outBuf[7]=posY;
+    outBuf[8]=velX>>8;  outBuf[9]=velX;
+    outBuf[10]=velY>>8; outBuf[11]=velY;
+    outBuf[12]=flags;
+    return cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, sizeof outBuf) ? 1 : 0;
+}
+
+
+// ---- main ----
+int main(int argCount, char** argValues){
+
+    // Parses args
+    if (argCount<3){ fprintf(stderr,"Usage: %s <ip> <port>\n", argValues[0]); return 1; }
+
+
+    // Network init + connect
+    if (!net_init()){ fprintf(stderr,"Net init fail\n"); return 1; }
+
+    int socketFd = net_connect(argValues[1], (uint16_t)atoi(argValues[2])); // socket TCP
+    if (socketFd < 0){ net_cleanup(); return 1; }
+
+
+    // Register handlers
+    for (int i=0;i<256;i++) g_frameHandlers[i]=NULL;
+    disp_register(CP_TYPE_INIT_STATIC,  on_init_static);
+    disp_register(CP_TYPE_STATE_BUNDLE, on_state_bundle);
+
+    // ACK
+    CP_Header header;
+
+    // Lee ACK
+    if (!cp_read_header(socketFd,&header) || header.type!=CP_TYPE_CLIENT_ACK){
+        fprintf(stderr,"Bad ACK\n"); goto done;
+    }
+    // Descarta payload si existe
+    if (header.payloadLen){
+        uint8_t* skipPayload=(uint8_t*)malloc(header.payloadLen);
+        if (skipPayload){ net_read_n(socketFd,skipPayload,header.payloadLen); free(skipPayload); }
+    }
+
+    // INIT_STATIC
+    // Verifica header
+    if (!cp_read_header(socketFd,&header) || header.type!=CP_TYPE_INIT_STATIC){
+        fprintf(stderr,"Expected INIT_STATIC\n"); goto done;
+    } 
+
+    // Lee payload
+    else {
+        uint8_t* payloadBuf=(uint8_t*)malloc(header.payloadLen);
+        if (!payloadBuf || net_read_n(socketFd,payloadBuf,header.payloadLen)<=0){ free(payloadBuf); goto done; }
+        disp_handle(header.type, payloadBuf, header.payloadLen);
+        free(payloadBuf);
+    }
+
+
+
+    // UI
+    game_init(256,240,3);
+    game_set_bg("clientC/UI/Sprites/FONDO1.png", 0.40f);
+
+    uint32_t tick=0, clientId=0;
+
+
+
+    // Main loop Game
+    while (!WindowShouldClose()){
+
+        // Se revisa si hay datos del servidor
+
+        if (net_peek(socketFd)){
+            
+            // Si no hay header, rompe
+            if (!cp_read_header(socketFd,&header)) break;
+            uint8_t* payloadBuf = (header.payloadLen)? (uint8_t*)malloc(header.payloadLen): NULL;
+            
+            
+            if (header.payloadLen && net_read_n(socketFd,payloadBuf,header.payloadLen)<=0){ free(payloadBuf); break; }
+            disp_handle(header.type, payloadBuf, header.payloadLen);
+            free(payloadBuf);
+
+
+        }
+
+        ProposedState proposedState;
+        game_update_and_get_proposal(cp_get_static(), &proposedState);
+        send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);
+
+        game_draw_static(cp_get_static());
+    }
+
+    game_shutdown();
+
+done:
+    cp_free_static();
+    net_close(socketFd);
+    net_cleanup();
+    return 0;
+}

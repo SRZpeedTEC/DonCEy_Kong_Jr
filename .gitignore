@@ -1,24 +1,131 @@
-# Compiled class file
-*.class
-
-# Log file
+# ---- SO / General ----
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Trashes
+.Spotlight-V100
 *.log
+logs/
+*.tmp
+tmp/
+temp/
+*~
+*.swp
+*.swo
+.cache/
 
-# BlueJ files
-*.ctxt
+# ---- C / C++ artefactos ----
+# Objetos / binarios
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+# Depuración / cobertura
+*.pdb
+*.dSYM/
+*.gcno
+*.gcda
+*.gcov
+*.su
+# Headers precompilados
+*.gch
+*.pch
+# Make / Ninja / otros
+*.d
+build.ninja
+.ninja_deps
+.ninja_log
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# ---- CMake / Autotools ----
+[Cc]MakeCache.txt
+[Cc]MakeFiles/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+CTestTestfile.cmake
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+cmake-build-*/
+Makefile
+makefile
+# Autotools
+autom4te.cache/
+aclocal.m4
+compile
+config.guess
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+ltmain.sh
+missing
+stamp-h1
+libtool
 
-# Package Files #
+# ---- Java artefactos ----
+# Compilación y empaques
+*.class
 *.jar
 *.war
-*.nar
 *.ear
-*.zip
-*.tar.gz
-*.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+*.nar
+# Errores de JVM
 hs_err_pid*
 replay_pid*
+# Maven
+target/
+.mvn/wrapper/maven-wrapper.jar
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+# Jacoco / cobertura
+.jacoco/
+jacoco*.exec
+*.ec
+coverage/
+*.lcov
+lcov.info
+
+# ---- IDEs / Editores ----
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+# Eclipse
+.project
+.classpath
+.cproject
+.settings/
+.metadata/
+bin/
+# VS Code
+.vscode/
+.history/
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# ---- Otros archivos empaquetados (opc.) ----
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
