@@ -14,15 +14,24 @@
 // ---- dispatcher ----
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
 static FrameHandler g_frameHandlers[256];
-static void disp_register(uint8_t frameType, FrameHandler handlerFn){ g_frameHandlers[frameType]=handlerFn; }
-static void disp_handle(uint8_t frameType, const uint8_t* payloadPtr, uint32_t payloadLen){ if (g_frameHandlers[frameType]) g_frameHandlers[frameType](payloadPtr,payloadLen); }
+static void disp_register(uint8_t frameType, FrameHandler handlerFn)
+{ 
+    g_frameHandlers[frameType] = handlerFn; 
+}
+
+static void disp_handle(uint8_t frameType, const uint8_t* payloadPtr, uint32_t payloadLen){ 
+    if (g_frameHandlers[frameType]) 
+    {
+        g_frameHandlers[frameType](payloadPtr,payloadLen); 
+    }
+}
 
 
 
 // ---- handlers ----
 static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
     if (!cp_recv_init_static_payload(payloadPtr,payloadLen)) fprintf(stderr,"[INIT_STATIC] payload invalido\n");
-    else                                                    fprintf(stdout,"[INIT_STATIC] OK\n");
+    else fprintf(stdout,"[INIT_STATIC] OK\n");
 }
 
 
@@ -47,8 +56,8 @@ static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
 
 
 // ---- envío de propuesta (cliente -> server) ----
-static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick,
-                                int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags){
+static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
+{
     uint8_t outBuf[4+2+2+2+2+1];
     outBuf[0]=tick>>24; outBuf[1]=tick>>16; outBuf[2]=tick>>8; outBuf[3]=tick;
     outBuf[4]=posX>>8;  outBuf[5]=posX;
@@ -58,6 +67,7 @@ static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick,
     outBuf[12]=flags;
     return cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, sizeof outBuf) ? 1 : 0;
 }
+
 
 // ---- main ----
 int main(int argCount, char** argValues){
@@ -122,7 +132,7 @@ int main(int argCount, char** argValues){
 
         if (net_peek(socketFd)){
             
-            // Lee header, si no hay datos rompe
+            // Si no hay header, rompe
             if (!cp_read_header(socketFd,&header)) break;
             uint8_t* payloadBuf = (header.payloadLen)? (uint8_t*)malloc(header.payloadLen): NULL;
             
