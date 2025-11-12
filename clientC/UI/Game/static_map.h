@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 typedef struct { uint16_t x,y,w,h; } CP_Rect;
-typedef struct {
+typedef struct CP_Static {
   uint16_t nPlat, nVines, nWater;
   CP_Rect *plat, *vines, *water;
 } CP_Static;
