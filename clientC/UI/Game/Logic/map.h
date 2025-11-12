@@ -12,17 +12,9 @@ typedef struct {
     const struct CP_Static* data;
 } MapView;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Build a MapView reading from static_map.
 MapView map_view_build(void);
 
 // Query the level rectangle bounds (viewport/world space).
 // For now we will return the canonical 256x240 (NES-like) viewport.
 void map_get_world_bounds(int* outX, int* outY, int* outW, int* outH);
-
-#ifdef __cplusplus
-}
-#endif

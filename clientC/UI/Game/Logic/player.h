@@ -9,6 +9,10 @@ typedef struct {
     int16_t w, h;      // size in pixels
     int16_t vx, vy;    // velocity in px/frame (temporary)
     bool grounded;     // true if standing on ground
+
+    // jump state for constant-velocity model
+    bool jumping;         // true while ascending
+    int  jumpFramesLeft;  // remaining ascent frames
 } Player;
 
 #ifdef __cplusplus
