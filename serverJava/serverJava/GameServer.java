@@ -6,38 +6,44 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import MessageManagement.Messenger;
-import MessageManagement.Proto;
-import MessageManagement.Session;
-import MessageManagement.AnswerProcessor;
 import Utils.Rect;
-import Utils.MsgType; 
-import Classes.Player.player;
-// import Utils.TlvType;
+import Classes.Player.player;   // <- this is the class that AnswerProcessor uses
 
 public class GameServer {
 
-    
-
-    // ---- Server fields ----
     private final int port;
-    private final ServerSocket serverSocket;
+    private ServerSocket serverSocket;
 
+    // Connected clients
     private final ConcurrentHashMap<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
-    private final AtomicInteger idGen = new AtomicInteger(1000);
+    private final AtomicInteger idGen = new AtomicInteger(1);
 
-    // ---- elementos del juego (estáticos por ahora) ----
-    public Rect player = new Rect(16,192,16,16);
-    public final List<Rect> enemies   = new ArrayList<>();
-    public final List<Rect> fruits    = new ArrayList<>();
+    // ---- Level & game state ----
+
+    // These were being used directly as server.platforms, server.vines, etc.
+    // Make them public so MessageManagement.* can access them.
     public final List<Rect> platforms = new ArrayList<>();
-    public final List<Rect> vines     = new ArrayList<>();
-    public final List<Rect> waters    = new ArrayList<>();
-    public player p1 = new player(16,192);
+    public final List<Rect> vines      = new ArrayList<>();
+    public final List<Rect> waters     = new ArrayList<>();
 
+    // Enemies & fruits were referenced in Messenger
+    public final List<Rect> enemies    = new ArrayList<>();
+    public final List<Rect> fruits     = new ArrayList<>();
 
-    private void initLevel(){
-        
+    // Player rectangle used in Messenger.sendInitStaticLegacy
+    public Rect player = new Rect(0, 0, 0, 0);
+
+    // p1 is the logical player object used in AnswerProcessor
+    // AnswerProcessor sets p1.x, p1.y, p1.vx, p1.vy
+    public player p1 = null;
+
+    public GameServer(int port) {
+        this.port = port;
+        initLevel();
+    }
+
+    // ---- Your initial game board ----
+    private void initLevel() {
         platforms.add(new Rect(0,   24, 256, 12));
         platforms.add(new Rect(32,  72,  56, 12));
         platforms.add(new Rect(152, 64,  88, 12));
@@ -48,38 +54,28 @@ public class GameServer {
         platforms.add(new Rect( 64,208,  32, 12));
         platforms.add(new Rect(112,208,  32, 12));
         platforms.add(new Rect(160,208,  32, 12));
+
         vines.add(new Rect( 40, 40, 6, 168));
         vines.add(new Rect( 88, 56, 6, 152));
         vines.add(new Rect(128, 40, 6, 168));
         vines.add(new Rect(168, 48, 6, 160));
         vines.add(new Rect(200, 40, 6, 168));
         vines.add(new Rect(232, 40, 6, 168));
+        vines.add(new Rect(0, 40, 6, 168));
+
         waters.add(new Rect(0, 224, 256, 16));
+
+        // If you want an initial visible position for the player rect:
+        // (example values — use whatever your game logic expects)
+        player = new Rect(16, 200, 16, 16);
     }
 
-    public GameServer(int port) throws IOException {
-        this.port = port;
-        this.serverSocket = new ServerSocket(this.port);
-        initLevel();
-        System.out.println("Server listening on port " + port);
-    }
-
-    public void start() throws IOException {
-        Thread admin = new Thread(this::adminLoop, "admin-loop");
-        admin.setDaemon(true);
-        admin.start();
-
-        while (true) {
-            Socket s = serverSocket.accept();
-            s.setTcpNoDelay(true);
-            int id = idGen.getAndIncrement();
-
-            ClientHandler handle = new ClientHandler(id, s, this);
-            clients.put(id, handle);
-            handle.start();
-            System.out.println("Client connected, assigned id=" + id + " from " + s.getRemoteSocketAddress());
-        }
-    }
+    // Optional getters (you can keep them or remove them; Messenger uses the public fields)
+    public List<Rect> getPlatforms() { return platforms; }
+    public List<Rect> getVines()     { return vines; }
+    public List<Rect> getWaters()    { return waters; }
+    public List<Rect> getEnemies()   { return enemies; }
+    public List<Rect> getFruits()    { return fruits; }
 
     private void adminLoop() {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
@@ -88,15 +84,65 @@ public class GameServer {
                 line = line.trim();
                 if (line.equalsIgnoreCase("list")) {
                     if (clients.isEmpty()) { System.out.println("(no clients)"); continue; }
-                    clients.forEach((id, h) -> System.out.println("id=" + id + " remote=" + h.getRemote()));
-                } else if (line.equalsIgnoreCase("help")) {
-                    System.out.println("Commands: list | help");
+                    clients.forEach((id, h) ->
+                        System.out.println("id=" + id + " remote=" + h.getRemote()));
+                }
+                else if (line.startsWith("croc ")) {
+                    try {
+                        String[] parts = line.split("\\s+");
+                        if (parts.length != 4) {
+                            System.out.println("Usage: croc <clientId> <x> <y>");
+                            continue;
+                        }
+
+                        int id = Integer.parseInt(parts[1]);
+                        int x  = Integer.parseInt(parts[2]);
+                        int y  = Integer.parseInt(parts[3]);
+
+                        ClientHandler h = clients.get(id);
+                        if (h == null) {
+                            System.out.println("No such client: " + id);
+                            continue;
+                        }
+
+                        h.sendSpawnCroc(x, y);
+                        System.out.println("Sent CROC_SPAWN to client " + id + " at (" + x + "," + y + ")");
+                    } catch (Exception e) {
+                        System.out.println("Usage: croc <clientId> <x> <y>");
+                    }
+                }
+                else if (line.equalsIgnoreCase("help")) {
+                    System.out.println("Commands: list | croc <clientId> <x> <y> | help");
                 }
             }
         } catch (IOException ignored) {}
     }
 
-    void removeClient(int id) {
+    public void start() throws IOException {
+        serverSocket = new ServerSocket(port);
+        System.out.println("Server listening on port " + port);
+
+        // start admin console in background
+        Thread admin = new Thread(this::adminLoop, "admin-loop");
+        admin.setDaemon(true);
+        admin.start();
+
+
+        while (true) {
+            Socket socket = serverSocket.accept();
+            socket.setTcpNoDelay(true);
+
+            int clientId = idGen.getAndIncrement();
+            ClientHandler handler = new ClientHandler(clientId, socket, this);
+            clients.put(clientId, handler);
+            handler.start();
+
+            System.out.println("Client connected, id=" + clientId + " from " + socket.getRemoteSocketAddress());
+        }
+    }
+
+    // Called by ClientHandler when a client disconnects
+    public void removeClient(int id) {
         clients.remove(id);
         System.out.println("Client " + id + " disconnected.");
     }
@@ -106,48 +152,5 @@ public class GameServer {
         new GameServer(port).start();
     }
 
-    // ===== Client handler =====
-    public class ClientHandler extends Thread {
-        private final int clientId;
-        private final Socket socket;              // <- GUARDA el socket
-        private final AnswerProcessor answerProcessor;
-        private final Messenger messenger;
-        private final Session session;
-        private final DataInputStream in;
 
-        public ClientHandler(int clientId, Socket socket, GameServer server) throws IOException {
-            super("Client-" + clientId);
-            this.clientId = clientId;
-            this.socket   = socket;               // <- ASIGNA
-            this.in   = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-            this.session = new Session(clientId, out);
-            this.answerProcessor   = new AnswerProcessor(server);
-            this.messenger = new Messenger(server);
-
-            // ACK
-            Proto.writeHeader(out, MsgType.CLIENT_ACK, clientId, 0, 0);
-            out.flush();
-
-            
-            messenger.sendInitStaticLegacy(clientId, out);
-        }
-
-        public String getRemote() {               // <- MÉTODO QUE TE FALTABA
-            return socket.getRemoteSocketAddress().toString();
-        }
-
-        @Override public void run(){
-            try {
-                while (true) {
-                    answerProcessor.processFrame(in, session);
-                }
-            } catch (Exception e){
-                session.log("disconnect: " + e.getMessage());
-            } finally {
-                try { socket.close(); } catch (IOException ignore) {}
-                removeClient(clientId);
-            }
-        }
-    }
 }

@@ -3,11 +3,11 @@
 #include "raylib.h"
 #include <string.h>
 
-#include "../render/render.h"
-#include "logic/input.h"
-#include "logic/player.h"
-#include "logic/physics.h"
-#include "logic/map.h"
+#include "../Render/render.h"
+#include "Logic/input.h"
+#include "Logic/player.h"
+#include "Logic/physics.h"
+#include "Logic/map.h"
 
 // window/state
 static int VW, VH, SCALE;
@@ -17,6 +17,13 @@ static float g_bgAlpha = 0.35f;
 
 // player state
 static Player gPlayer;
+
+// crocodile constants
+static bool gCrocActive = false;
+static int  gCrocX;
+static int  gCrocY;
+static int  gCrocW;
+static int  gCrocH;
 
 // --- init / shutdown ---
 void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
@@ -29,6 +36,11 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
 
     // start player box (will be replaced by sprites later)
     player_init(&gPlayer, 16, 192, 16, 16);
+
+    // init croc state
+    gCrocActive = false;
+    gCrocX = gCrocY = 0;
+    gCrocW = gCrocH = 8;
 }
 
 void game_shutdown(void) {
@@ -60,6 +72,11 @@ void game_draw_static(const CP_Static* staticMap) {
 
         // draw level primitives + player box via render module
         render_draw_level(staticMap, gPlayer.x, gPlayer.y, gPlayer.w, gPlayer.h);
+
+        // draw crocodile square (if active)
+        if (gCrocActive) {
+            DrawRectangleLines(gCrocX, gCrocY, gCrocW, gCrocH, RED);
+        }
     EndTextureMode();
 
     BeginDrawing();
@@ -105,4 +122,10 @@ void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int1
         gPlayer.y += vyCorr;
         gPlayer.grounded = false;
     }
+}
+
+void game_spawn_croc(int16_t x, int16_t y) {
+    gCrocX = x;
+    gCrocY = y;
+    gCrocActive = true;
 }

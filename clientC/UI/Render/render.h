@@ -1,5 +1,5 @@
 #pragma once
-#include "../game/static_map.h"
+#include "../Game/static_map.h"
 
 // Simple render module for drawing the level and the player box.
 // Receives static map and player bounds.
