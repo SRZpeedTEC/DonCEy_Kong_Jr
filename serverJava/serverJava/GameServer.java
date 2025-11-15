@@ -111,6 +111,30 @@ public class GameServer {
                         System.out.println("Usage: croc <clientId> <x> <y>");
                     }
                 }
+                else if (line.startsWith("fruit ")) {
+                    try {
+                        String[] parts = line.split("\\s+");
+                        if (parts.length != 4) {
+                            System.out.println("Usage: fruit <clientId> <x> <y>");
+                            continue;
+                        }
+
+                        int id = Integer.parseInt(parts[1]);
+                        int x  = Integer.parseInt(parts[2]);
+                        int y  = Integer.parseInt(parts[3]);
+
+                        ClientHandler h = clients.get(id);
+                        if (h == null) {
+                            System.out.println("No such client: " + id);
+                            continue;
+                        }
+
+                        h.sendSpawnFruit(x, y);
+                        System.out.println("Sent FRUIT_SPAWN to client " + id + " at (" + x + "," + y + ")");
+                    } catch (Exception e) {
+                        System.out.println("Usage: fruit <clientId> <x> <y>");
+                    }
+                }
                 else if (line.equalsIgnoreCase("help")) {
                     System.out.println("Commands: list | croc <clientId> <x> <y> | help");
                 }

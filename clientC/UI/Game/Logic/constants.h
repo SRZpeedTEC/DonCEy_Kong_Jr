@@ -6,3 +6,11 @@
 #define FALL_SPEED_Y         1   // constant fall speed 
 #define JUMP_ASCENT_SPEED   -1   // very slow upward motion
 #define JUMP_ASCENT_FRAMES  18   // how many frames we keep ascending
+
+
+// Maximum number of crocodiles in the game
+#define MAX_CROCS 16
+
+
+// Maximun number of fruits in the game
+#define MAX_FRUITS 16

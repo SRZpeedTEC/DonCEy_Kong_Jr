@@ -56,4 +56,27 @@ public class Messenger {
         out.flush();
     }
 
+    public void sendSpawnFruit(Session session, int x, int y) throws IOException {
+        DataOutputStream out = session.out();  // or session.out, depending on your Session class
+
+        // payload: int16 x, int16 y (big-endian, matches C side CP_TYPE_SPAWN_FRUIT)
+        byte[] payload = new byte[4];
+        payload[0] = (byte) (x >> 8);
+        payload[1] = (byte) (x & 0xFF);
+        payload[2] = (byte) (y >> 8);
+        payload[3] = (byte) (y & 0xFF);
+
+        // header: same helper you use for INIT_GEOM / STATE_BUNDLE
+        Proto.writeHeader(
+            out,
+            MsgType.FRUIT_SPAWN,           // type
+            session.clientId(),        // destination client id
+            0,                            // gameId (0 for now)
+            payload.length                // payload size
+        );
+
+        out.write(payload);
+        out.flush();
+    }
+
 }
