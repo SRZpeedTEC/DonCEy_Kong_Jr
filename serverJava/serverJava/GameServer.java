@@ -59,22 +59,17 @@ public class GameServer {
         platforms.add(new Rect(  1,  64, 151, 8));
 
         //vines
-        vines.add(new Rect(20, 73, 2, 127));
-        
-        
-        
-        vines.add(new Rect(20, 73, 2, 127));
-
-        vines.add(new Rect( 40, 40, 6, 168));
-        vines.add(new Rect( 88, 56, 6, 152));
-        vines.add(new Rect(128, 40, 6, 168));
-        vines.add(new Rect(168, 48, 6, 160));
-        vines.add(new Rect(200, 40, 6, 168));
-        vines.add(new Rect(232, 40, 6, 168));
-        vines.add(new Rect(0, 40, 6, 168));
-
-        waters.add(new Rect(0, 224, 256, 16));
-        
+        vines.add(new Rect( 20,  73,  2, 127));
+        vines.add(new Rect( 44,  73,  2, 119));
+        vines.add(new Rect( 68, 121,  2,  79));
+        vines.add(new Rect(108,  73,  2, 103));
+        vines.add(new Rect(140,  73,  2,  71));
+        vines.add(new Rect(154,  81,  2,  95));
+        vines.add(new Rect(188,  81,  2,  79));
+        vines.add(new Rect(212,  49,  2, 127));
+        vines.add(new Rect(236,  49,  2, 127));
+        vines.add(new Rect(156,  33,  2,   7));
+        vines.add(new Rect(108,  33,  2,  15));
 
         // If you want an initial visible position for the player rect:
         // (example values — use whatever your game logic expects)

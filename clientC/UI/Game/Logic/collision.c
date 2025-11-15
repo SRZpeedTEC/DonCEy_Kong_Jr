@@ -73,6 +73,45 @@ static IntRect player_vine_rect(const Player* p) {
     return r;
 }
 
+
+// reach rect used when trying to grab a neighbor vine by stretching
+// direction: -1 = reach left, +1 = reach right
+static IntRect player_vine_reach_rect(const Player* p, int direction) {
+    IntRect r;
+
+    int fullLeft   = p->x;
+    int fullTop    = p->y;
+    int fullWidth  = p->w;
+    int fullHeight = p->h;
+
+    int probeHeight = fullHeight / 2;
+    if (probeHeight < 4) probeHeight = 4;
+
+    int offsetY = (fullHeight - probeHeight) / 2;
+
+    // how far jr stretches beyond his body
+    const int extraReach = 6; // PODEMOS CAMBIAR ESTO PARA VER EL AGARRE. <------------------------------
+
+    if (direction > 0) {
+        // reaching to the right
+        r.left   = fullLeft;
+        r.width  = fullWidth + extraReach;
+    } else {
+        // reaching to the left
+        r.left   = fullLeft - extraReach;
+        r.width  = fullWidth + extraReach;
+    }
+
+    r.top    = fullTop + offsetY;
+    r.height = probeHeight;
+    r.right  = r.left + r.width;
+    r.bottom = r.top  + r.height;
+
+    return r;
+}
+
+
+
 //handle vertical hit (top or bottom) against one platform
 static bool vertical_hit(Player* player,
                          const IntRect* pr,
@@ -244,16 +283,109 @@ bool player_touching_vine(const Player* player, const MapView* map) {
 
     IntRect pr = player_vine_rect(player);
 
-    for (uint16_t i = 0; i < st->nVines; i++) {
+    for (uint16_t i = 0; i < st->nVines; i++) 
+    {
         const CP_Rect* v = &st->vines[i];
         IntRect vr = plat_rect(v); 
 
-        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height,
-                            vr.left, vr.top, vr.width, vr.height))
+        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height, vr.left, vr.top, vr.width, vr.height)) 
         {
             return true;
         }
     }
 
     return false;
+}
+
+// find which vine the player is currently holding onto.
+// this checks the player's inner vine-rect against all vines.
+// returns the index of the vine, or -1 if none.
+int collision_find_current_vine_index(const Player* player,
+                                      const MapView* map)
+{
+    if (!player || !map || !map->data)
+        return -1;
+
+    const CP_Static* st = (const CP_Static*)map->data;
+    if (!st->vines || st->nVines == 0)
+        return -1;
+
+    // inner rect used to detect real vine grabbing
+    IntRect pr = player_vine_rect(player);
+
+    // check overlap with each vine
+    for (uint16_t i = 0; i < st->nVines; i++) {
+        IntRect vr = plat_rect(&st->vines[i]);
+
+        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height,
+                            vr.left, vr.top, vr.width, vr.height))
+        {
+            return (int)i; // player is grabbing this vine
+        }
+    }
+
+    return -1; // no vine found
+}
+
+// find a neighbor vine that jr can reach by stretching horizontally.
+// direction: -1 = left, +1 = right
+// currentVineIndex: the vine jr is currently on
+// returns the index of the neighbor vine, or -1 if none is reachable.
+int collision_find_neighbor_vine_reachable(const Player* player,
+                                           const MapView* map,
+                                           int currentVineIndex,
+                                           int direction)
+{
+    if (!player || !map || !map->data)
+        return -1;
+
+    const CP_Static* st = (const CP_Static*)map->data;
+    if (!st->vines || st->nVines == 0)
+        return -1;
+
+    if (currentVineIndex < 0 || currentVineIndex >= (int)st->nVines)
+        return -1;
+
+    // larger rect used when jr “stretches” to reach another vine
+    IntRect reach = player_vine_reach_rect(player, direction);
+
+    // center of the current vine (used to measure relative distance)
+    IntRect currentVR = plat_rect(&st->vines[currentVineIndex]);
+    int currentCenterX = currentVR.left + currentVR.width / 2;
+
+    int bestIndex = -1;
+    int bestDxAbs = 0;
+
+    // test all vines as potential neighbors
+    for (uint16_t i = 0; i < st->nVines; i++) {
+
+        if ((int)i == currentVineIndex)
+            continue; // skip the vine already holding
+
+        IntRect vr = plat_rect(&st->vines[i]);
+
+        // must overlap the reach-rect to be considered
+        if (!rects_overlap_i(reach.left, reach.top, reach.width, reach.height,
+                             vr.left, vr.top, vr.width, vr.height))
+        {
+            continue;
+        }
+
+        // compute horizontal direction relative to current vine
+        int vineCenterX = vr.left + vr.width / 2;
+        int dx = vineCenterX - currentCenterX;
+
+        // make sure vine is actually on the requested side
+        if (direction > 0 && dx <= 0) continue; // looking right
+        if (direction < 0 && dx >= 0) continue; // looking left
+
+        // pick the closest reachable vine on that side
+        int dxAbs = (dx < 0) ? -dx : dx;
+        if (bestIndex < 0 || dxAbs < bestDxAbs) {
+            bestIndex = (int)i;
+            bestDxAbs = dxAbs;
+        }
+    }
+
+    return bestIndex; // -1 if none found
 }

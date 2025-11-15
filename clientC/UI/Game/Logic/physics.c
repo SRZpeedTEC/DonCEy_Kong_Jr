@@ -2,6 +2,7 @@
 #include "physics.h"
 #include "constants.h"
 #include "collision.h"
+#include "static_map.h"
 
 // Map left/right input to horizontal velocity.
 static void updateHorizontalVelocityFromInput(Player* player, const InputState* input) {
@@ -105,28 +106,99 @@ static void updateGroundedFromFloor(Player* player, int worldTop, int worldHeigh
     }
 }
 
+// handle left/right input while on a vine:
+// - pressing "towards" vine swaps side around the same vine
+// - pressing "away" from vine tries to reach a neighbor; if none, drops
+static bool handleVineHorizontal(Player* player,
+                                 const InputState* input,
+                                 const MapView* map)
+{
+    if (!input->left && !input->right) return false; // no horizontal intent
+
+    int currentIndex = collision_find_current_vine_index(player, map);
+    if (currentIndex < 0) {
+        // no vine actually under reach -> treat as drop
+        player->onVine = false;
+        return true; // dropped
+    }
+
+    // get side: compare player center vs vine center
+    const CP_Static* st = (const CP_Static*)map->data;
+    const CP_Rect* v = &st->vines[currentIndex];
+    int vineCenterX   = v->x + v->w / 2;
+    int playerCenterX = player->x + player->w / 2;
+    int side = 0; // -1 = player mostly left, +1 = mostly right
+    if (playerCenterX < vineCenterX) side = -1;
+    else if (playerCenterX > vineCenterX) side = 1;
+    else side = 1; // arbitrary if perfectly centered
+
+    // if pressing opposite to side, we just swap around the same vine
+    if (input->left && side > 0) {
+        // was on right, go to left side of same vine
+        player->x = v->x - player->w;
+        return false;
+    }
+    if (input->right && side < 0) {
+        // was on left, go to right side of same vine
+        player->x = v->x + v->w;
+        return false;
+    }
+
+    // pressing "away" from current side: try to grab a neighbor vine
+    int dir = 0;
+    if (input->left)  dir = -1;
+    if (input->right) dir = +1;
+    if (dir == 0) return false;
+
+    int neighborIndex = collision_find_neighbor_vine_reachable(player, map,
+                                                               currentIndex, dir);
+    if (neighborIndex < 0) {
+        // no neighbor vine in reach: jr drops
+        player->onVine = false;
+        return true; // dropped
+    }
+
+    // snap to neighbor vine side (right or left depending on direction)
+    const CP_Rect* nv = &st->vines[neighborIndex];
+    if (dir > 0) {
+        // grabbing a vine to the right
+        player->x = nv->x + nv->w;
+    } else {
+        // grabbing a vine to the left
+        player->x = nv->x - player->w;
+    }
+
+    return false; // still on some vine
+}
+
+
+
+
 // Main function that makes one physics step with constant vertical speeds
 // and special vine movement when onVine is true.
 void physics_step(Player* player, const InputState* input, const MapView* map, float dt) {
-    (void)dt; // per-frame model for now
+    (void)dt; // per-frame model 
     if (!player || !input || !map) return;
 
     int worldLeft, worldTop, worldWidth, worldHeight;
     map_get_world_bounds(&worldLeft, &worldTop, &worldWidth, &worldHeight);
 
+     bool forcedDrop = false;
+
     // horizontal phase
     if (player->onVine) {
-        // no horizontal movement while on a vine (CHANGE LATER)
+        // horizontal input is interpreted as vine transitions
+        forcedDrop = handleVineHorizontal(player, input, map);
         player->vx = 0;
     } else {
         updateHorizontalVelocityFromInput(player, input);
         applyHorizontalMotion(player);
-        // resolve side hits with platforms
+        // horizontal collisions with platforms
         resolve_player_platform_collisions(player, map, COLLISION_PHASE_HORIZONTAL);
     }
 
     // vertical phase
-    if (player->onVine) {
+    if (player->onVine && !forcedDrop) {
         // vine movement: only up/down, no gravity
         updateVerticalVelocityOnVine(player, input);
         applyVerticalMotion(player);
@@ -146,5 +218,8 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     update_player_grounded(player, map, worldTop, worldHeight);
 
     // detect vine contact for next frame (uses inner vine rect)
-    player->onVine = player_touching_vine(player, map);
+    // update onVine only if we did not force a drop this frame
+    if (!forcedDrop) {
+        player->onVine = player_touching_vine(player, map);
+    }
 }

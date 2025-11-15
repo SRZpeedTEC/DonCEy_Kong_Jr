@@ -25,3 +25,10 @@ void update_player_grounded(Player* player, const MapView* mapView,
 
 // check if player touches any vine (does not resolve movement yet)
 bool player_touching_vine(const Player* player, const MapView* map);
+
+// find the index of the vine the player is currently overlapping
+int collision_find_current_vine_index(const Player* player, const MapView* map);
+
+// find a neighbor vine that can be reached by stretching left/right
+// direction: -1 = reach left, +1 = reach right
+int collision_find_neighbor_vine_reachable(const Player* player, const MapView* map, int currentVineIndex, int direction);
