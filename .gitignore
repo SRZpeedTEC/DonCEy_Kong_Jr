@@ -1,3 +1,15 @@
+# Build dirs (CMake, Ninja, MSYS/VSCode)
+build/
+build-*/
+build_ucrt64/
+build-ucrt64*/
+out/
+
+CMakeUserPresets.json
+CMakeSettings.json
+.vs/
+
+
 # ---- SO / General ----
 .DS_Store
 Thumbs.db
