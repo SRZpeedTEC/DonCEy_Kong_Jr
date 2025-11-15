@@ -1,6 +1,7 @@
 // physics.c — constant fall speed and slow jump ascent
 #include "physics.h"
 #include "constants.h"
+#include "collision.h"
 
 // Map left/right input to horizontal velocity.
 static void updateHorizontalVelocityFromInput(Player* player, const InputState* input) {
@@ -66,13 +67,17 @@ static void clampInsideWorldBounds(Player* player,
         if (player->vy < 0) player->vy = 0;
         player->jumping = false;
         player->jumpFramesLeft = 0;
+        
     }
 
     // floor
     int floorY = worldTop + worldHeight - player->h;
     if (player->y > floorY) {
         player->y = floorY;
-        player->vy = 0;
+        if (player->vy > 0) player->vy = 0;
+        player->jumping = false;
+        player->jumpFramesLeft = 0;
+        
     }
 }
 
@@ -86,7 +91,7 @@ static void updateGroundedFromFloor(Player* player, int worldTop, int worldHeigh
     }
 }
 
-// Main function that makes one physics step with constant vertical speeds.
+// Main function that handles player movement physics.
 void physics_step(Player* player, const InputState* input, const MapView* map, float dt) {
     (void)dt; // per-frame model for now
     if (!player || !input || !map) return;
@@ -94,12 +99,21 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     int worldLeft, worldTop, worldWidth, worldHeight;
     map_get_world_bounds(&worldLeft, &worldTop, &worldWidth, &worldHeight);
 
+    // horizontal: input → vx → move → collide with platform sides
     updateHorizontalVelocityFromInput(player, input);
     applyHorizontalMotion(player);
+    resolve_player_platform_collisions(player, map, COLLISION_PHASE_HORIZONTAL);
 
+    // vertical: jump / fall → move → later we handle top/bottom hits
     updateVerticalVelocityConstant(player, input);
     applyVerticalMotion(player);
 
+    // keep player inside world bounds
     clampInsideWorldBounds(player, worldLeft, worldTop, worldWidth, worldHeight);
-    updateGroundedFromFloor(player, worldTop, worldHeight);
+
+    // vertical collisions with platforms (top and bottom only)
+    resolve_player_platform_collisions(player, map, COLLISION_PHASE_VERTICAL);
+
+    // final grounded state (floor or platform top)
+    update_player_grounded(player, map, worldTop, worldHeight);
 }

@@ -44,7 +44,9 @@ public class GameServer {
 
     // ---- Your initial game board ----
     private void initLevel() {
-        platforms.add(new Rect(0,   24, 256, 12));
+        
+        platforms.add(new Rect(1, 215, 70, 8));
+        /* 
         platforms.add(new Rect(32,  72,  56, 12));
         platforms.add(new Rect(152, 64,  88, 12));
         platforms.add(new Rect(184,136,  64, 12));
@@ -64,6 +66,7 @@ public class GameServer {
         vines.add(new Rect(0, 40, 6, 168));
 
         waters.add(new Rect(0, 224, 256, 16));
+        /* */
 
         // If you want an initial visible position for the player rect:
         // (example values — use whatever your game logic expects)
