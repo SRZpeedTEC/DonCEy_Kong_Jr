@@ -12,7 +12,7 @@ public class Messenger {
     // A) INIT_STATIC (LEGACY: igual al cliente C actual)
     public void sendInitStaticLegacy(int destClientId, DataOutputStream out) throws IOException {
         int nP = server.platforms.size(), nV = server.vines.size(),
-            nE = server.enemies.size(),   nF = server.fruits.size();
+            nE = server.crocodiles.size(),   nF = server.fruits.size();
 
         final int rectBytes = 8;
         int payloadLen = 8 // player
@@ -27,7 +27,7 @@ public class Messenger {
         Proto.writeRect(out, server.player);
         Proto.writeU16(out, nP); for (Rect r: server.platforms) Proto.writeRect(out, r);
         Proto.writeU16(out, nV); for (Rect r: server.vines)     Proto.writeRect(out, r);
-        Proto.writeU16(out, nE); for (Rect r: server.enemies)   Proto.writeRect(out, r);
+        Proto.writeU16(out, nE); for (Rect r: server.crocodiles)   Proto.writeRect(out, r);
         Proto.writeU16(out, nF); for (Rect r: server.fruits)    Proto.writeRect(out, r);
 
         out.flush();
