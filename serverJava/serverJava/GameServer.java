@@ -57,6 +57,9 @@ public class GameServer {
         platforms.add(new Rect(193, 136,  63, 8));
         platforms.add(new Rect(145,  72,  62 , 8));
         platforms.add(new Rect(  1,  64, 151, 8));
+        
+        /* 
+        
 
         vines.add(new Rect( 40, 40, 6, 168));
         vines.add(new Rect( 88, 56, 6, 152));
@@ -67,6 +70,7 @@ public class GameServer {
         vines.add(new Rect(0, 40, 6, 168));
 
         waters.add(new Rect(0, 224, 256, 16));
+        /* */
 
         // If you want an initial visible position for the player rect:
         // (example values — use whatever your game logic expects)
