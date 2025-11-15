@@ -13,6 +13,9 @@ public class ServerGui {
     private final JFrame frame;
     private final JComboBox<Integer> clientCombo;
 
+    private final JRadioButton crocRadio;
+    private final JRadioButton fruitRadio;
+
     public ServerGui(GameServer server) {
         this.server = server;
 
@@ -20,8 +23,9 @@ public class ServerGui {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        // ---- Top: client selection + refresh ----
+        // ---------- TOP PANEL: client selection + mode ----------
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
         top.add(new JLabel("Target client:"));
 
         clientCombo = new JComboBox<>();
@@ -31,9 +35,21 @@ public class ServerGui {
         refreshBtn.addActionListener(e -> refreshClients());
         top.add(refreshBtn);
 
+        // Mode selection: Crocodile vs Fruit
+        crocRadio = new JRadioButton("Crocodile", true);
+        fruitRadio = new JRadioButton("Fruit");
+
+        ButtonGroup modeGroup = new ButtonGroup();
+        modeGroup.add(crocRadio);
+        modeGroup.add(fruitRadio);
+
+        top.add(new JLabel("  Mode:"));
+        top.add(crocRadio);
+        top.add(fruitRadio);
+
         frame.add(top, BorderLayout.NORTH);
 
-        // ---- Center: buttons for vines + platforms ----
+        // ---------- CENTER PANEL: vines & platforms buttons ----------
         JPanel center = new JPanel(new GridLayout(2, 1));
 
         // Vines panel
@@ -41,7 +57,7 @@ public class ServerGui {
         vinesPanel.setBorder(new TitledBorder("Vines"));
         List<Rect> vines = server.getVines();
         for (int i = 0; i < vines.size(); i++) {
-            int idx = i;
+            final int idx = i;
             JButton b = new JButton("Vine " + i);
             b.addActionListener(e -> spawnOnVine(idx));
             vinesPanel.add(b);
@@ -52,7 +68,7 @@ public class ServerGui {
         platformsPanel.setBorder(new TitledBorder("Platforms"));
         List<Rect> plats = server.getPlatforms();
         for (int i = 0; i < plats.size(); i++) {
-            int idx = i;
+            final int idx = i;
             JButton b = new JButton("Plat " + i);
             b.addActionListener(e -> spawnOnPlatform(idx));
             platformsPanel.add(b);
@@ -70,6 +86,8 @@ public class ServerGui {
         refreshClients();
     }
 
+    // --- Helpers ---
+
     private void refreshClients() {
         clientCombo.removeAllItems();
         for (Integer id : server.getClientIdsSnapshot()) {
@@ -81,6 +99,7 @@ public class ServerGui {
         return (Integer) clientCombo.getSelectedItem();
     }
 
+    // Called when user clicks a "Vine N" button
     private void spawnOnVine(int vineIndex) {
         Integer clientId = getSelectedClientId();
         if (clientId == null) {
@@ -88,9 +107,15 @@ public class ServerGui {
             JOptionPane.showMessageDialog(frame, "No client selected", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        server.spawnCrocOnVineForClient(clientId, vineIndex);
+
+        if (crocRadio.isSelected()) {
+            server.spawnCrocOnVineForClient(clientId, vineIndex);
+        } else {
+            server.spawnFruitOnVineForClient(clientId, vineIndex);
+        }
     }
 
+    // Called when user clicks a "Plat N" button
     private void spawnOnPlatform(int platformIndex) {
         Integer clientId = getSelectedClientId();
         if (clientId == null) {
@@ -98,7 +123,12 @@ public class ServerGui {
             JOptionPane.showMessageDialog(frame, "No client selected", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        server.spawnCrocOnPlatformForClient(clientId, platformIndex);
+
+        if (crocRadio.isSelected()) {
+            server.spawnCrocOnPlatformForClient(clientId, platformIndex);
+        } else {
+            server.spawnFruitOnPlatformForClient(clientId, platformIndex);
+        }
     }
 
     public void show() {

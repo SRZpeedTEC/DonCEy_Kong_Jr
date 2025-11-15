@@ -58,7 +58,7 @@ public class GameServer {
         platforms.add(new Rect(145,  72,  62 , 8));
         platforms.add(new Rect(  1,  64, 151, 8));
         
-        /* 
+        
         
 
         vines.add(new Rect( 40, 40, 6, 168));
@@ -70,7 +70,7 @@ public class GameServer {
         vines.add(new Rect(0, 40, 6, 168));
 
         waters.add(new Rect(0, 224, 256, 16));
-        /* */
+        
 
         // If you want an initial visible position for the player rect:
         // (example values — use whatever your game logic expects)
@@ -217,6 +217,44 @@ public class GameServer {
         int x = r.x() + r.w() / 2;
         int y = r.y() + r.h() / 2;
         h.sendSpawnCroc(x, y);
+    }
+
+    // Spawn a fruit at the center of the given vine for a specific client
+    public void spawnFruitOnVineForClient(int clientId, int vineIndex) {
+        ClientHandler h = clients.get(clientId);
+        if (h == null) {
+            System.out.println("GUI: no client " + clientId);
+            return;
+        }
+        if (vineIndex < 0 || vineIndex >= vines.size()) {
+            System.out.println("GUI: invalid vine index " + vineIndex);
+            return;
+        }
+        Rect r = vines.get(vineIndex);
+        int x = r.x() + r.w() / 2;
+        int y = r.y() + r.h() / 2;
+
+        // TODO: change this to your real method name if needed
+        h.sendSpawnFruit(x, y);
+    }
+
+    // Spawn a fruit at the center of the given platform for a specific client
+    public void spawnFruitOnPlatformForClient(int clientId, int platformIndex) {
+        ClientHandler h = clients.get(clientId);
+        if (h == null) {
+            System.out.println("GUI: no client " + clientId);
+            return;
+        }
+        if (platformIndex < 0 || platformIndex >= platforms.size()) {
+            System.out.println("GUI: invalid platform index " + platformIndex);
+            return;
+        }
+        Rect r = platforms.get(platformIndex);
+        int x = r.x() + r.w() / 2;
+        int y = r.y() + r.h() / 2;
+
+        // TODO: change this to your real method name if needed
+        h.sendSpawnFruit(x, y);
     }
 
     public static void main(String[] args) throws Exception {
