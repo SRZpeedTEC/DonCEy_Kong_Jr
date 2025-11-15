@@ -49,19 +49,19 @@ public class ClientHandler extends Thread {
         return socket.getRemoteSocketAddress().toString();
     }
 
-    public void sendSpawnCroc(int x, int y) {
+    public void sendSpawnCroc(byte variant, int x, int y) {
         try {
-            messenger.sendSpawnCroc(session, x, y);
-            session.log("Sent CROC_SPAWN to client " + clientId + " at (" + x + "," + y + ")");
+            messenger.sendSpawnCroc(session, variant, x, y);
+            session.log("Sent CROC_SPAWN(v="+variant+") to client " + clientId + " at (" + x + "," + y + ")");
         } catch (IOException e) {
             session.log("Error sending CROC_SPAWN: " + e.getMessage());
         }
     }
 
-    public void sendSpawnFruit(int x, int y) {
+    public void sendSpawnFruit(byte variant, int x, int y) {
         try {
-            messenger.sendSpawnFruit(session, x, y);
-            session.log("Sent FRUIT_SPAWN to client " + clientId + " at (" + x + "," + y + ")");
+            messenger.sendSpawnFruit(session, variant, x, y);
+            session.log("Sent FRUIT_SPAWN(v="+variant+") to client " + clientId + " at (" + x + "," + y + ")");
         } catch (IOException e) {
             session.log("Error sending FRUIT_SPAWN: " + e.getMessage());
         }

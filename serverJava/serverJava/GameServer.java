@@ -98,63 +98,74 @@ public class GameServer {
                 line = line.trim();
                 if (line.equalsIgnoreCase("list")) {
                     if (clients.isEmpty()) { System.out.println("(no clients)"); continue; }
-                    clients.forEach((id, h) ->
-                        System.out.println("id=" + id + " remote=" + h.getRemote()));
+                    clients.forEach((id, h) -> System.out.println("id=" + id + " remote=" + h.getRemote()));
                 }
                 else if (line.startsWith("croc ")) {
+                    // croc <clientId> <variant> <x> <y>
                     try {
-                        String[] parts = line.split("\\s+");
-                        if (parts.length != 4) {
-                            System.out.println("Usage: croc <clientId> <x> <y>");
-                            continue;
-                        }
-
-                        int id = Integer.parseInt(parts[1]);
-                        int x  = Integer.parseInt(parts[2]);
-                        int y  = Integer.parseInt(parts[3]);
-
+                        String[] p = line.split("\\s+");
+                        if (p.length != 5) { System.out.println("Usage: croc <clientId> <RED|BLUE|1|2> <x> <y>"); continue; }
+                        int id = Integer.parseInt(p[1]);
+                        byte variant = parseCrocVariant(p[2]);
+                        int x = Integer.parseInt(p[3]);
+                        int y = Integer.parseInt(p[4]);
                         ClientHandler h = clients.get(id);
-                        if (h == null) {
-                            System.out.println("No such client: " + id);
-                            continue;
-                        }
-
-                        h.sendSpawnCroc(x, y);
-                        System.out.println("Sent CROC_SPAWN to client " + id + " at (" + x + "," + y + ")");
+                        if (h == null) { System.out.println("No such client: " + id); continue; }
+                        h.sendSpawnCroc(variant, x, y);
+                        System.out.printf("Sent CROC_SPAWN v=%d to client %d at (%d,%d)%n", variant, id, x, y);
                     } catch (Exception e) {
-                        System.out.println("Usage: croc <clientId> <x> <y>");
+                        System.out.println("Usage: croc <clientId> <RED|BLUE|1|2> <x> <y>");
                     }
                 }
                 else if (line.startsWith("fruit ")) {
+                    // fruit <clientId> <variant> <x> <y>
                     try {
-                        String[] parts = line.split("\\s+");
-                        if (parts.length != 4) {
-                            System.out.println("Usage: fruit <clientId> <x> <y>");
-                            continue;
-                        }
-
-                        int id = Integer.parseInt(parts[1]);
-                        int x  = Integer.parseInt(parts[2]);
-                        int y  = Integer.parseInt(parts[3]);
-
+                        String[] p = line.split("\\s+");
+                        if (p.length != 5) { System.out.println("Usage: fruit <clientId> <BANANA|APPLE|ORANGE|1|2|3> <x> <y>"); continue; }
+                        int id = Integer.parseInt(p[1]);
+                        byte variant = parseFruitVariant(p[2]);
+                        int x = Integer.parseInt(p[3]);
+                        int y = Integer.parseInt(p[4]);
                         ClientHandler h = clients.get(id);
-                        if (h == null) {
-                            System.out.println("No such client: " + id);
-                            continue;
-                        }
-
-                        h.sendSpawnFruit(x, y);
-                        System.out.println("Sent FRUIT_SPAWN to client " + id + " at (" + x + "," + y + ")");
+                        if (h == null) { System.out.println("No such client: " + id); continue; }
+                        h.sendSpawnFruit(variant, x, y);
+                        System.out.printf("Sent FRUIT_SPAWN v=%d to client %d at (%d,%d)%n", variant, id, x, y);
                     } catch (Exception e) {
-                        System.out.println("Usage: fruit <clientId> <x> <y>");
+                        System.out.println("Usage: fruit <clientId> <BANANA|APPLE|ORANGE|1|2|3> <x> <y>");
                     }
                 }
                 else if (line.equalsIgnoreCase("help")) {
-                    System.out.println("Commands: list | croc <clientId> <x> <y> | help");
+                    System.out.println("Commands:");
+                    System.out.println("  list");
+                    System.out.println("  croc  <clientId> <RED|BLUE|1|2> <x> <y>");
+                    System.out.println("  fruit <clientId> <BANANA|APPLE|ORANGE|1|2|3> <x> <y>");
+                    System.out.println("  help");
                 }
             }
         } catch (IOException ignored) {}
     }
+
+    // Parsers auxiliares:
+    private static byte parseCrocVariant(String token){
+        token = token.toUpperCase();
+        switch (token){
+            case "RED":  return Utils.CrocVariant.RED.code;
+            case "BLUE": return Utils.CrocVariant.BLUE.code;
+            default:
+                try { return (byte)Integer.parseInt(token); } catch(Exception e){ return 0; }
+        }
+    }
+    private static byte parseFruitVariant(String token){
+        token = token.toUpperCase();
+        switch (token){
+            case "BANANA": return Utils.FruitVariant.BANANA.code;
+            case "APPLE":  return Utils.FruitVariant.APPLE.code;
+            case "ORANGE": return Utils.FruitVariant.ORANGE.code;
+            default:
+                try { return (byte)Integer.parseInt(token); } catch(Exception e){ return 0; }
+        }
+    }
+
 
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);
@@ -190,7 +201,7 @@ public class GameServer {
     }
 
         // Spawn a croc at the center of the given vine for a specific client
-    public void spawnCrocOnVineForClient(int clientId, int vineIndex) {
+    public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant) {
         ClientHandler h = clients.get(clientId);
         if (h == null) {
             System.out.println("GUI: no client " + clientId);
@@ -203,11 +214,11 @@ public class GameServer {
         Rect r = vines.get(vineIndex);
         int x = r.x() + r.w() / 2;
         int y = r.y() + r.h() / 2;
-        h.sendSpawnCroc(x, y);   
+        h.sendSpawnCroc(variant, x, y);   
     }
 
     // Optional: spawn croc on a platform instead of vine
-    public void spawnCrocOnPlatformForClient(int clientId, int platformIndex) {
+    public void spawnCrocOnPlatformForClient(int clientId, int platformIndex, byte variant) {
         ClientHandler h = clients.get(clientId);
         if (h == null) {
             System.out.println("GUI: no client " + clientId);
@@ -220,11 +231,11 @@ public class GameServer {
         Rect r = platforms.get(platformIndex);
         int x = r.x() + r.w() / 2;
         int y = r.y() + r.h() / 2;
-        h.sendSpawnCroc(x, y);
+        h.sendSpawnCroc(variant, x, y);
     }
 
     // Spawn a fruit at the center of the given vine for a specific client
-    public void spawnFruitOnVineForClient(int clientId, int vineIndex) {
+    public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant) {
         ClientHandler h = clients.get(clientId);
         if (h == null) {
             System.out.println("GUI: no client " + clientId);
@@ -239,11 +250,11 @@ public class GameServer {
         int y = r.y() + r.h() / 2;
 
         // TODO: change this to your real method name if needed
-        h.sendSpawnFruit(x, y);
+        h.sendSpawnFruit(variant, x, y);
     }
 
     // Spawn a fruit at the center of the given platform for a specific client
-    public void spawnFruitOnPlatformForClient(int clientId, int platformIndex) {
+    public void spawnFruitOnPlatformForClient(int clientId, int platformIndex, byte variant) {
         ClientHandler h = clients.get(clientId);
         if (h == null) {
             System.out.println("GUI: no client " + clientId);
@@ -258,7 +269,7 @@ public class GameServer {
         int y = r.y() + r.h() / 2;
 
         // TODO: change this to your real method name if needed
-        h.sendSpawnFruit(x, y);
+        h.sendSpawnFruit(variant, x, y);
     }
 
     public static void main(String[] args) throws Exception {

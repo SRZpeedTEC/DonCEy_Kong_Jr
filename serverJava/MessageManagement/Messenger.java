@@ -3,11 +3,19 @@ import serverJava.GameServer;
 import java.io.*;
 import Utils.Rect;
 import Utils.MsgType;
+import Messages.OutboundMessage;
+import Messages.factories.CrocodileFactory;
+import Messages.factories.FruitFactory;
+
 
 public class Messenger {
     private final GameServer server;
+    private final CrocodileFactory crocFactory = new CrocodileFactory();
+    private final FruitFactory fruitFactory = new FruitFactory();
 
     public Messenger(GameServer server){ this.server = server; }
+
+
 
     // A) INIT_STATIC (LEGACY: igual al cliente C actual)
     public void sendInitStaticLegacy(int destClientId, DataOutputStream out) throws IOException {
@@ -20,7 +28,7 @@ public class Messenger {
                        + 2 + nV*rectBytes
                        + 2 + nE*rectBytes
                        + 2 + nF*rectBytes;
-        // Nota: si en C esperas también "water", añádelo aquí.
+        
 
         Proto.writeHeader(out, MsgType.INIT_STATIC, destClientId, 0, payloadLen);
 
@@ -33,50 +41,27 @@ public class Messenger {
         out.flush();
     }
 
-    public void sendSpawnCroc(Session session, int x, int y) throws IOException {
-        DataOutputStream out = session.out();  // or session.out, depending on your Session class
-
-        // payload: int16 x, int16 y (big-endian, matches C side CP_TYPE_SPAWN_CROC)
-        byte[] payload = new byte[4];
-        payload[0] = (byte) (x >> 8);
-        payload[1] = (byte) (x & 0xFF);
-        payload[2] = (byte) (y >> 8);
-        payload[3] = (byte) (y & 0xFF);
-
-        // header: same helper you use for INIT_GEOM / STATE_BUNDLE
-        Proto.writeHeader(
-            out,
-            MsgType.CROC_SPAWN,           // type
-            session.clientId(),        // destination client id
-            0,                            // gameId (0 for now)
-            payload.length                // payload size
-        );
-
-        out.write(payload);
-        out.flush();
+    public void sendSpawnCroc(Session sess, byte variant, int x, int y) throws IOException {
+        byte[] pl = packVariantXY(variant, x, y);
+        Proto.writeHeader(sess.out(), MsgType.CROC_SPAWN, sess.clientId(), 0, pl.length);
+        sess.out().write(pl);
+        sess.out().flush();
     }
 
-    public void sendSpawnFruit(Session session, int x, int y) throws IOException {
-        DataOutputStream out = session.out();  // or session.out, depending on your Session class
 
-        // payload: int16 x, int16 y (big-endian, matches C side CP_TYPE_SPAWN_FRUIT)
-        byte[] payload = new byte[4];
-        payload[0] = (byte) (x >> 8);
-        payload[1] = (byte) (x & 0xFF);
-        payload[2] = (byte) (y >> 8);
-        payload[3] = (byte) (y & 0xFF);
-
-        // header: same helper you use for INIT_GEOM / STATE_BUNDLE
-        Proto.writeHeader(
-            out,
-            MsgType.FRUIT_SPAWN,           // type
-            session.clientId(),        // destination client id
-            0,                            // gameId (0 for now)
-            payload.length                // payload size
-        );
-
-        out.write(payload);
-        out.flush();
+    public void sendSpawnFruit(Session sess, byte variant, int x, int y) throws IOException {
+        byte[] pl = packVariantXY(variant, x, y);
+        Proto.writeHeader(sess.out(), MsgType.FRUIT_SPAWN, sess.clientId(), 0, pl.length);
+        sess.out().write(pl);
+        sess.out().flush();
     }
+
+    private static byte[] packVariantXY(byte variant, int x, int y){
+    return new byte[]{
+        variant,
+        (byte)(x >> 8), (byte)x,
+        (byte)(y >> 8), (byte)y
+    };
+}
 
 }
