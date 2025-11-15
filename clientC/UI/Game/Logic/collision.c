@@ -205,3 +205,28 @@ void update_player_grounded(Player* player,
 
     player->grounded = (onFloor || onPlat);
 }
+
+//VINES
+
+//detect if player touches any vine
+bool player_touching_vine(const Player* player, const MapView* map) {
+    if (!player || !map || !map->data) return false;
+
+    const CP_Static* st = (const CP_Static*)map->data;
+    if (!st->vines || st->nVines == 0) return false;
+
+    IntRect pr = player_rect(player);
+
+    for (uint16_t i = 0; i < st->nVines; i++) {
+        const CP_Rect* v = &st->vines[i];
+        IntRect vr = plat_rect(v); 
+
+        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height,
+                            vr.left, vr.top, vr.width, vr.height))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}

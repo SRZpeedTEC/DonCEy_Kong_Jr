@@ -114,6 +114,8 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     // vertical collisions with platforms (top and bottom only)
     resolve_player_platform_collisions(player, map, COLLISION_PHASE_VERTICAL);
 
+    player->onVine = player_touching_vine(player, map);
+
     // final grounded state (floor or platform top)
     update_player_grounded(player, map, worldTop, worldHeight);
 }

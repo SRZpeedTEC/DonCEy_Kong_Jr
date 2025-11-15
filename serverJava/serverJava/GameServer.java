@@ -59,9 +59,13 @@ public class GameServer {
         platforms.add(new Rect(193, 136,  63, 8));
         platforms.add(new Rect(145,  72,  62 , 8));
         platforms.add(new Rect(  1,  64, 151, 8));
+
+        //vines
+        vines.add(new Rect(20, 73, 2, 127));
         
         /* 
         
+        vines.add(new Rect(20, 73, 2, 127));
 
         vines.add(new Rect( 40, 40, 6, 168));
         vines.add(new Rect( 88, 56, 6, 152));

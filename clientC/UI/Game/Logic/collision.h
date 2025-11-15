@@ -22,3 +22,6 @@ void resolve_player_platform_collisions(Player* player,
 // Recompute grounded based on floor and platform tops.
 void update_player_grounded(Player* player, const MapView* mapView,
                             int worldTop, int worldHeight);
+
+// check if player touches any vine (does not resolve movement yet)
+bool player_touching_vine(const Player* player, const MapView* map);
