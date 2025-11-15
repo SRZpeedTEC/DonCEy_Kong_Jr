@@ -4,11 +4,13 @@
 #include <string.h>
 
 #include "../Render/render.h"
-#include "logic/input.h"
-#include "logic/player.h"
-#include "logic/physics.h"
-#include "logic/map.h"
-#include "logic/crocodile.h"
+#include "Logic/input.h"
+#include "Logic/player.h"
+#include "Logic/physics.h"
+#include "Logic/map.h"
+#include "Logic/crocodile.h"
+#include "Logic/constants.h"
+#include "Logic/fruit.h"
 
 // window/state
 static int VW, VH, SCALE;
@@ -20,7 +22,10 @@ static float g_bgAlpha = 0.35f;
 static Player gPlayer;
 
 // crocodile state
-static Crocodile gCroc;
+static Crocodile gCrocs[MAX_CROCS];
+
+// fruits state
+static Fruit gFruits[MAX_FRUITS];
 
 // --- init / shutdown ---
 void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
@@ -35,7 +40,14 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     player_init(&gPlayer, 16, 192, 16, 16);
 
     // init croc state
-    crocodile_init(&gCroc, 8, 8);
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        crocodile_init(&gCrocs[i], 8, 8);
+    }
+
+    // init fruit state
+    for (int i = 0; i < MAX_FRUITS; i++){
+        fruit_init(&gFruits[i], 8,8);
+    }
 }
 
 void game_shutdown(void) {
@@ -68,10 +80,25 @@ void game_draw_static(const CP_Static* staticMap) {
         // draw level primitives + player box via render module
         render_draw_level(staticMap, gPlayer.x, gPlayer.y, gPlayer.w, gPlayer.h);
 
-        // draw crocodile square (if active)
-        if (gCroc.active) {
-        DrawRectangleLines(gCroc.x, gCroc.y, gCroc.w, gCroc.h, RED);
+        
+        // draw all active crocodiles
+        for (int i = 0; i < MAX_CROCS; ++i) {
+            if (gCrocs[i].active) {
+                DrawRectangleLines(gCrocs[i].x, gCrocs[i].y,
+                                gCrocs[i].w, gCrocs[i].h,
+                                RED);
             }
+        }
+        
+        // draw all active fruits
+        for (int i = 0; i < MAX_FRUITS; ++i) {
+            if (gFruits[i].active) {
+                DrawRectangleLines(gFruits[i].x, gFruits[i].y,
+                                gFruits[i].w, gFruits[i].h,
+                                YELLOW);
+            }
+        }
+
     EndTextureMode();
 
     BeginDrawing();
@@ -124,5 +151,25 @@ void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int1
 }
 
 void game_spawn_croc(int16_t x, int16_t y) {
-    crocodile_spawn(&gCroc, x, y);
+    // search for an inactive crocodile to spawn
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        if (!gCrocs[i].active) {
+            crocodile_spawn(&gCrocs[i], x, y);
+            return;
+        }
+    }
+    // if everything is active, overwrite the first one
+    crocodile_spawn(&gCrocs[0], x, y);
+}
+
+void game_spawn_fruit(int16_t x, int16_t y) {
+    // search for an inactive fruit to spawn
+    for (int i = 0; i < MAX_FRUITS; ++i) {
+        if (!gFruits[i].active) {
+            fruit_spawn(&gFruits[i], x, y);
+            return;
+        }
+    }
+    // if everything is active, overwrite the first one
+    fruit_spawn(&gFruits[0], x, y);
 }
