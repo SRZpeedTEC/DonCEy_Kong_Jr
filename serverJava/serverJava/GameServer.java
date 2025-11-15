@@ -44,16 +44,19 @@ public class GameServer {
 
     // ---- Your initial game board ----
     private void initLevel() {
-        platforms.add(new Rect(0,   24, 256, 12));
-        platforms.add(new Rect(32,  72,  56, 12));
-        platforms.add(new Rect(152, 64,  88, 12));
-        platforms.add(new Rect(184,136,  64, 12));
-        platforms.add(new Rect(120,160,  96, 12));
-        platforms.add(new Rect(72, 192, 120, 12));
-        platforms.add(new Rect(200,176,  56, 12));
-        platforms.add(new Rect( 64,208,  32, 12));
-        platforms.add(new Rect(112,208,  32, 12));
-        platforms.add(new Rect(160,208,  32, 12));
+        // grass platforms
+        platforms.add(new Rect(  1, 215,  71, 8));
+        platforms.add(new Rect( 97, 199,  31, 8));
+        platforms.add(new Rect(137, 207,  23, 8));
+        platforms.add(new Rect(169, 199,  31, 8));
+        platforms.add(new Rect(209, 191,  31, 8));
+
+        // wood platforms
+        platforms.add(new Rect( 49, 152,  47, 8));
+        platforms.add(new Rect( 49, 112,  31, 8));
+        platforms.add(new Rect(193, 136,  63, 8));
+        platforms.add(new Rect(145,  72,  62 , 8));
+        platforms.add(new Rect(  1,  64, 151, 8));
 
         vines.add(new Rect( 40, 40, 6, 168));
         vines.add(new Rect( 88, 56, 6, 152));
