@@ -22,7 +22,7 @@ typedef struct {
     int left, top, right, bottom, width, height;
 } IntRect;
 
-/* build rect for current player position */
+//build rect for current player position
 static IntRect player_rect(const Player* p) {
     IntRect r;
     r.left   = p->x;
@@ -43,6 +43,33 @@ static IntRect plat_rect(const CP_Rect* p) {
     r.height = p->h;
     r.right  = r.left + r.width;
     r.bottom = r.top  + r.height;
+    return r;
+}
+
+
+// build a smaller rect for vine detection (centered vertically inside player)
+static IntRect player_vine_rect(const Player* p) {
+    IntRect r;
+
+    int fullLeft   = p->x;
+    int fullTop    = p->y;
+    int fullWidth  = p->w;
+    int fullHeight = p->h;
+
+    // use half of the height of Jr, size 
+    int probeHeight = fullHeight / 2;
+    if (probeHeight < 4) probeHeight = 4;  // small safety clamp
+
+    // center the probe vertically inside the player hitbox
+    int offsetY = (fullHeight - probeHeight) / 2;
+
+    r.left   = fullLeft;
+    r.top    = fullTop + offsetY;
+    r.width  = fullWidth;
+    r.height = probeHeight;
+    r.right  = r.left + r.width;
+    r.bottom = r.top  + r.height;
+
     return r;
 }
 
@@ -215,7 +242,7 @@ bool player_touching_vine(const Player* player, const MapView* map) {
     const CP_Static* st = (const CP_Static*)map->data;
     if (!st->vines || st->nVines == 0) return false;
 
-    IntRect pr = player_rect(player);
+    IntRect pr = player_vine_rect(player);
 
     for (uint16_t i = 0; i < st->nVines; i++) {
         const CP_Rect* v = &st->vines[i];

@@ -1,4 +1,4 @@
-// physics.c — constant fall speed and slow jump ascent
+// physics.c — constant fall speed, slow jump ascent, special vine movement
 #include "physics.h"
 #include "constants.h"
 #include "collision.h"
@@ -16,7 +16,7 @@ static void applyHorizontalMotion(Player* player) {
     player->x += player->vx;
 }
 
-// Decide vertical velocity using a constant-velocity model:
+// Decide vertical velocity using a constant-velocity model when not on a vine.
 // If grounded and jump is requested then start slow ascent for N frames.
 // While ascending, keep constant upward speed until frames run out.
 // Otherwise constant fall speed.
@@ -51,6 +51,22 @@ static void applyVerticalMotion(Player* player) {
     player->y += player->vy;
 }
 
+// Vertical movement while on a vine: no gravity, only up/down.
+static void updateVerticalVelocityOnVine(Player* player, const InputState* input) {
+    // disable jump state when on a vine
+    player->jumping = false;
+    player->jumpFramesLeft = 0;
+    player->grounded = false;
+
+    if (input->up && !input->down) {
+        player->vy = (int16_t)(-VINE_CLIMB_SPEED); // climb up
+    } else if (input->down && !input->up) {
+        player->vy = (int16_t)(VINE_CLIMB_SPEED);  // climb down
+    } else {
+        player->vy = 0; // stay in place on the vine
+    }
+}
+
 // Keep player inside a rectangular world (left/top/right/bottom).
 static void clampInsideWorldBounds(Player* player,
                                    int worldLeft, int worldTop,
@@ -67,7 +83,6 @@ static void clampInsideWorldBounds(Player* player,
         if (player->vy < 0) player->vy = 0;
         player->jumping = false;
         player->jumpFramesLeft = 0;
-        
     }
 
     // floor
@@ -77,7 +92,6 @@ static void clampInsideWorldBounds(Player* player,
         if (player->vy > 0) player->vy = 0;
         player->jumping = false;
         player->jumpFramesLeft = 0;
-        
     }
 }
 
@@ -91,7 +105,8 @@ static void updateGroundedFromFloor(Player* player, int worldTop, int worldHeigh
     }
 }
 
-// Main function that handles player movement physics.
+// Main function that makes one physics step with constant vertical speeds
+// and special vine movement when onVine is true.
 void physics_step(Player* player, const InputState* input, const MapView* map, float dt) {
     (void)dt; // per-frame model for now
     if (!player || !input || !map) return;
@@ -99,23 +114,37 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     int worldLeft, worldTop, worldWidth, worldHeight;
     map_get_world_bounds(&worldLeft, &worldTop, &worldWidth, &worldHeight);
 
-    // horizontal: input → vx → move → collide with platform sides
-    updateHorizontalVelocityFromInput(player, input);
-    applyHorizontalMotion(player);
-    resolve_player_platform_collisions(player, map, COLLISION_PHASE_HORIZONTAL);
+    // horizontal phase
+    if (player->onVine) {
+        // no horizontal movement while on a vine (CHANGE LATER)
+        player->vx = 0;
+    } else {
+        updateHorizontalVelocityFromInput(player, input);
+        applyHorizontalMotion(player);
+        // resolve side hits with platforms
+        resolve_player_platform_collisions(player, map, COLLISION_PHASE_HORIZONTAL);
+    }
 
-    // vertical: jump / fall → move → later we handle top/bottom hits
-    updateVerticalVelocityConstant(player, input);
-    applyVerticalMotion(player);
+    // vertical phase
+    if (player->onVine) {
+        // vine movement: only up/down, no gravity
+        updateVerticalVelocityOnVine(player, input);
+        applyVerticalMotion(player);
+    } else {
+        // normal jump/fall model
+        updateVerticalVelocityConstant(player, input);
+        applyVerticalMotion(player);
+    }
 
-    // keep player inside world bounds
+    // keep inside world bounds
     clampInsideWorldBounds(player, worldLeft, worldTop, worldWidth, worldHeight);
 
     // vertical collisions with platforms (top and bottom only)
     resolve_player_platform_collisions(player, map, COLLISION_PHASE_VERTICAL);
 
-    player->onVine = player_touching_vine(player, map);
-
     // final grounded state (floor or platform top)
     update_player_grounded(player, map, worldTop, worldHeight);
+
+    // detect vine contact for next frame (uses inner vine rect)
+    player->onVine = player_touching_vine(player, map);
 }
