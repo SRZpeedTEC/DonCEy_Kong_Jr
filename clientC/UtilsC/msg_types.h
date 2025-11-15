@@ -11,6 +11,7 @@ enum {
   CP_TYPE_STATE_BUNDLE = 0x10, // s -> c (TLV adentro)
   CP_TYPE_PLAYER_PROP  = 0x20, // c -> s (inputs / propuesta)
   CP_TYPE_SPAWN_CROC   = 0x30, // s -> c (spawn crocodile at coords)
+  CP_TYPE_SPAWN_FRUIT  = 0x40, // s -> c (spawn fruit at coords)
   CP_TYPE_PING         = 0x7E,
   CP_TYPE_PONG         = 0x7F
 };

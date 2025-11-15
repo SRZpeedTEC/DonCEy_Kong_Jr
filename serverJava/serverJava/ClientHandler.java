@@ -58,6 +58,15 @@ public class ClientHandler extends Thread {
         }
     }
 
+    public void sendSpawnFruit(int x, int y) {
+        try {
+            messenger.sendSpawnFruit(session, x, y);
+            session.log("Sent FRUIT_SPAWN to client " + clientId + " at (" + x + "," + y + ")");
+        } catch (IOException e) {
+            session.log("Error sending FRUIT_SPAWN: " + e.getMessage());
+        }
+    }
+
     @Override
     public void run() {
         try {
