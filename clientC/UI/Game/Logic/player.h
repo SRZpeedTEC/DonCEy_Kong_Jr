@@ -9,6 +9,7 @@ typedef struct {
     int16_t w, h;      // size in pixels
     int16_t vx, vy;    // velocity in px/frame (temporary)
     bool grounded;     // true if standing on ground
+    bool onVine;  // true if player is touching a vine
 
     // jump state for constant-velocity model
     bool jumping;         // true while ascending
