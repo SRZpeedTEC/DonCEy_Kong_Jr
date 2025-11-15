@@ -11,6 +11,33 @@
 #include "../UtilsC/tlv.h"
 
 
+// ---- spawn entities from the server ----
+static void on_spawn_croc(const uint8_t *payload, uint32_t len){
+    if (len < 4) {
+        printf("[CROC] Invalid payload size %u\n", len);
+        return;
+    }
+
+    int16_t x = (payload[0] << 8) | payload[1];
+    int16_t y = (payload[2] << 8) | payload[3];
+
+    printf("[CROC] Spawn crocodile at (%d, %d)\n", x, y);
+    game_spawn_croc(x, y);
+}
+
+static void on_spawn_fruit(const uint8_t *payload, uint32_t len){
+    if (len < 4) {
+        printf("[FRUIT] Invalid payload size %u\n", len);
+        return;
+    }
+
+    int16_t x = (payload[0] << 8) | payload[1];
+    int16_t y = (payload[2] << 8) | payload[3];
+
+    printf("[FRUIT] Spawn fruit at (%d, %d)\n", x, y);
+    game_spawn_fruit(x, y);
+}
+
 // ---- dispatcher ----
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
 static FrameHandler g_frameHandlers[256];
@@ -87,6 +114,9 @@ int main(int argCount, char** argValues){
     for (int i=0;i<256;i++) g_frameHandlers[i]=NULL;
     disp_register(CP_TYPE_INIT_STATIC,  on_init_static);
     disp_register(CP_TYPE_STATE_BUNDLE, on_state_bundle);
+    disp_register(CP_TYPE_SPAWN_CROC, on_spawn_croc);
+    disp_register(CP_TYPE_SPAWN_FRUIT, on_spawn_fruit);
+
 
     // ACK
     CP_Header header;

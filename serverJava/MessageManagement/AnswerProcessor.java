@@ -43,8 +43,8 @@ public class AnswerProcessor {
             byte  flags = in.readByte();
 
             // 1) imprime lo recibido (prueba de fuego)
-            System.out.printf("PLAYER_PROP from C%d: tick=%d pos=(%d,%d) v=(%d,%d) flags=0x%02X%n",
-                    fromId, tick, (int)x, (int)y, (int)vx, (int)vy, flags & 0xFF);
+            //System.out.printf("PLAYER_PROP from C%d: tick=%d pos=(%d,%d) v=(%d,%d) flags=0x%02X%n",
+                    //fromId, tick, (int)x, (int)y, (int)vx, (int)vy, flags & 0xFF);
 
             // 2a) si usas objeto Player:
             if (server.p1 != null){
@@ -60,37 +60,4 @@ public class AnswerProcessor {
             if (len > 0) in.skipNBytes(len);
         }
     }
-
-
-    // ---- Handlers ----
-
-    /* 
-    // PLAYER_PROPOSED: (tick:u32)(x:i16)(y:i16)(vx:i16)(vy:i16)(flags:u8)
-    private void onPlayerProposed(byte[] p, Session ctx) throws IOException {
-        if (p.length < 4+2+2+2+2+1) { ctx.log("short PLAYER_PROPOSED"); return; }
-        DataInputStream din = new DataInputStream(new ByteArrayInputStream(p));
-        int   tick = din.readInt();
-        short x    = din.readShort();
-        short y    = din.readShort();
-        short vx   = din.readShort();
-        short vy   = din.readShort();
-        int flags  = din.readUnsignedByte();
-
-        // 1) aplica inputs/estado propuesto a tu modelo
-        Player pl = server.getPlayer(ctx.clientId);
-        server.integrateProposed(pl, x, y, vx, vy, flags);
-
-        // 2) colisiones autoritativas (plataformas, lianas, enemigos, frutas)
-        server.resolveCollisions(pl, tick);
-
-        // 3) envía corrección autoritativa (TLV) de vuelta
-        messenger.sendStateCorrectedTLV(ctx.clientId, ctx.out(), pl, tick);
-    }
-
-    private void onPing(byte[] p, Session ctx) throws IOException {
-        // espejo simple
-        Proto.writeHeader(ctx.out(), MsgType.PONG, ctx.clientId, 0, p.length);
-        if (p.length>0) ctx.out().write(p);
-        ctx.out().flush();
-    } */
 }

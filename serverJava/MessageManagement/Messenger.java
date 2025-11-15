@@ -12,7 +12,7 @@ public class Messenger {
     // A) INIT_STATIC (LEGACY: igual al cliente C actual)
     public void sendInitStaticLegacy(int destClientId, DataOutputStream out) throws IOException {
         int nP = server.platforms.size(), nV = server.vines.size(),
-            nE = server.enemies.size(),   nF = server.fruits.size();
+            nE = server.crocodiles.size(),   nF = server.fruits.size();
 
         final int rectBytes = 8;
         int payloadLen = 8 // player
@@ -27,38 +27,56 @@ public class Messenger {
         Proto.writeRect(out, server.player);
         Proto.writeU16(out, nP); for (Rect r: server.platforms) Proto.writeRect(out, r);
         Proto.writeU16(out, nV); for (Rect r: server.vines)     Proto.writeRect(out, r);
-        Proto.writeU16(out, nE); for (Rect r: server.enemies)   Proto.writeRect(out, r);
+        Proto.writeU16(out, nE); for (Rect r: server.crocodiles)   Proto.writeRect(out, r);
         Proto.writeU16(out, nF); for (Rect r: server.fruits)    Proto.writeRect(out, r);
 
         out.flush();
     }
 
-    /* 
-    // B) STATE_BUNDLE (TLV dentro) – autoritativo
-    public void sendStateCorrectedTLV(int destClientId, DataOutputStream out, Player p, int tick) throws IOException {
-        // TLV 1: STATE_HEADER (tick u32)
-        ByteArrayOutputStream buf = new ByteArrayOutputStream();
-        DataOutputStream pout = new DataOutputStream(buf);
-        Proto.writeTLV(pout, TlvType.STATE_HEADER, Proto.bbU32(tick));
+    public void sendSpawnCroc(Session session, int x, int y) throws IOException {
+        DataOutputStream out = session.out();  // or session.out, depending on your Session class
 
-        // TLV 2: PLAYER_CORR
-        ByteArrayOutputStream v2 = new ByteArrayOutputStream();
-        DataOutputStream dv2 = new DataOutputStream(v2);
-        // grounded (u8), platId (u16), yCorr (i16), vyCorr (i16)
-        dv2.writeByte(p.grounded ? 1 : 0);
-        Proto.writeU16(dv2, p.onPlatId < 0 ? 0xFFFF : p.onPlatId);
-        dv2.write(Proto.bbI16((short)p.y));
-        dv2.write(Proto.bbI16((short)p.vy));
-        dv2.flush();
-        Proto.writeTLV(pout, TlvType.PLAYER_CORR, v2.toByteArray());
+        // payload: int16 x, int16 y (big-endian, matches C side CP_TYPE_SPAWN_CROC)
+        byte[] payload = new byte[4];
+        payload[0] = (byte) (x >> 8);
+        payload[1] = (byte) (x & 0xFF);
+        payload[2] = (byte) (y >> 8);
+        payload[3] = (byte) (y & 0xFF);
 
-        pout.flush();
-        byte[] payload = buf.toByteArray();
+        // header: same helper you use for INIT_GEOM / STATE_BUNDLE
+        Proto.writeHeader(
+            out,
+            MsgType.CROC_SPAWN,           // type
+            session.clientId(),        // destination client id
+            0,                            // gameId (0 for now)
+            payload.length                // payload size
+        );
 
-        Proto.writeHeader(out, MsgType.STATE_BUNDLE, destClientId, 0, payload.length);
         out.write(payload);
         out.flush();
+    }
 
-    } */
+    public void sendSpawnFruit(Session session, int x, int y) throws IOException {
+        DataOutputStream out = session.out();  // or session.out, depending on your Session class
+
+        // payload: int16 x, int16 y (big-endian, matches C side CP_TYPE_SPAWN_FRUIT)
+        byte[] payload = new byte[4];
+        payload[0] = (byte) (x >> 8);
+        payload[1] = (byte) (x & 0xFF);
+        payload[2] = (byte) (y >> 8);
+        payload[3] = (byte) (y & 0xFF);
+
+        // header: same helper you use for INIT_GEOM / STATE_BUNDLE
+        Proto.writeHeader(
+            out,
+            MsgType.FRUIT_SPAWN,           // type
+            session.clientId(),        // destination client id
+            0,                            // gameId (0 for now)
+            payload.length                // payload size
+        );
+
+        out.write(payload);
+        out.flush();
+    }
 
 }

@@ -3,101 +3,169 @@
 #include "raylib.h"
 #include <string.h>
 
-// ===== estado de render =====
+#include "../Render/render.h"
+#include "Logic/input.h"
+#include "Logic/player.h"
+#include "Logic/physics.h"
+#include "Logic/map.h"
+#include "Logic/crocodile.h"
+#include "Logic/constants.h"
+#include "Logic/fruit.h"
+
+// window/state
 static int VW, VH, SCALE;
 static RenderTexture2D rt;
 static Texture2D g_bg = {0};
 static float g_bgAlpha = 0.35f;
 
-// (jugador de ejemplo: ajusta cuando uses tu estado real)
-typedef struct { int16_t x,y,w,h; } PlayerBox;
-static PlayerBox G = {16,192,16,16};
+// player state
+static Player gPlayer;
 
-// ===== init / shutdown =====
-void game_init(uint16_t vw, uint16_t vh, uint16_t scale){
+// crocodile state
+static Crocodile gCrocs[MAX_CROCS];
+
+// fruits state
+static Fruit gFruits[MAX_FRUITS];
+
+// --- init / shutdown ---
+void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     VW = (int)vw; VH = (int)vh; SCALE = (int)scale;
-    InitWindow(VW*SCALE, VH*SCALE, "Client");
+    InitWindow(VW * SCALE, VH * SCALE, "Client");
     SetTargetFPS(60);
 
     rt = LoadRenderTexture(VW, VH);
-    SetTextureFilter(rt.texture, TEXTURE_FILTER_POINT); // pixel-art nítido
+    SetTextureFilter(rt.texture, TEXTURE_FILTER_POINT); // crisp pixel-art
+
+    // start player box (will be replaced by sprites later)
+    player_init(&gPlayer, 16, 192, 16, 16);
+
+    // init croc state
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        crocodile_init(&gCrocs[i], 8, 8);
+    }
+
+    // init fruit state
+    for (int i = 0; i < MAX_FRUITS; i++){
+        fruit_init(&gFruits[i], 8,8);
+    }
 }
 
-void game_shutdown(void){
+void game_shutdown(void) {
     if (g_bg.id) { UnloadTexture(g_bg); g_bg.id = 0; }
     UnloadRenderTexture(rt);
     CloseWindow();
 }
 
-void game_set_bg(const char* path, float alpha){
+void game_set_bg(const char* path, float alpha) {
     if (g_bg.id) { UnloadTexture(g_bg); g_bg.id = 0; }
-    if (path && *path){
+    if (path && *path) {
         g_bg = LoadTexture(path);
         SetTextureFilter(g_bg, TEXTURE_FILTER_POINT);
     }
-    if (alpha>=0.f && alpha<=1.f) g_bgAlpha = alpha;
+    if (alpha >= 0.f && alpha <= 1.f) g_bgAlpha = alpha;
 }
 
-// ===== dibujo =====
-static void draw_level(const CP_Static* s){
-    // fondo
-    if (g_bg.id){
-        Rectangle src = (Rectangle){0,0,(float)g_bg.width,(float)g_bg.height};
-        Rectangle dst = (Rectangle){0,0,(float)VW,(float)VH};
-        DrawTexturePro(g_bg, src, dst, (Vector2){0,0}, 0, Fade(WHITE, g_bgAlpha));
-    }
-
-    // agua (relleno celeste)
-    for (int i=0;i<s->nWater;i++)
-        DrawRectangle(s->water[i].x, s->water[i].y, s->water[i].w, s->water[i].h, SKYBLUE);
-
-    // plataformas (contorno verde)
-    for (int i=0;i<s->nPlat;i++)
-        DrawRectangleLines(s->plat[i].x, s->plat[i].y, s->plat[i].w, s->plat[i].h, GREEN);
-
-    // lianas (contorno amarillo)
-    for (int i=0;i<s->nVines;i++)
-        DrawRectangleLines(s->vines[i].x, s->vines[i].y, s->vines[i].w, s->vines[i].h, YELLOW);
-
-    // jugador (contorno naranja)
-    DrawRectangleLines(G.x, G.y, G.w, G.h, ORANGE);
-}
-
-void game_draw_static(const CP_Static* s){
+// --- draw ---
+void game_draw_static(const CP_Static* staticMap) {
     BeginTextureMode(rt);
         ClearBackground(BLACK);
-        if (s) draw_level(s);
+
+        // draw background texture (kept here to avoid exposing Texture2D in render.h)
+        if (g_bg.id) {
+            Rectangle src = (Rectangle){0, 0, (float)g_bg.width, (float)g_bg.height};
+            Rectangle dst = (Rectangle){0, 0, (float)VW, (float)VH};
+            DrawTexturePro(g_bg, src, dst, (Vector2){0, 0}, 0, Fade(WHITE, g_bgAlpha));
+        }
+
+        // draw level primitives + player box via render module
+        render_draw_level(staticMap, gPlayer.x, gPlayer.y, gPlayer.w, gPlayer.h);
+
+        
+        // draw all active crocodiles
+        for (int i = 0; i < MAX_CROCS; ++i) {
+            if (gCrocs[i].active) {
+                DrawRectangleLines(gCrocs[i].x, gCrocs[i].y,
+                                gCrocs[i].w, gCrocs[i].h,
+                                RED);
+            }
+        }
+        
+        // draw all active fruits
+        for (int i = 0; i < MAX_FRUITS; ++i) {
+            if (gFruits[i].active) {
+                DrawRectangleLines(gFruits[i].x, gFruits[i].y,
+                                gFruits[i].w, gFruits[i].h,
+                                YELLOW);
+            }
+        }
+
     EndTextureMode();
 
     BeginDrawing();
         ClearBackground(BLACK);
-        // ojo: height negativo para invertir el RT
-        Rectangle src = (Rectangle){0,0,(float)rt.texture.width,-(float)rt.texture.height};
-        Rectangle dst = (Rectangle){0,0,(float)VW*SCALE,(float)VH*SCALE};
-        DrawTexturePro(rt.texture, src, dst, (Vector2){0,0}, 0, WHITE);
-        DrawFPS(8,8);
+        // note: negative height to flip the render texture
+        Rectangle src = (Rectangle){0, 0, (float)rt.texture.width, -(float)rt.texture.height};
+        Rectangle dst = (Rectangle){0, 0, (float)VW * SCALE, (float)VH * SCALE};
+        DrawTexturePro(rt.texture, src, dst, (Vector2){0, 0}, 0, WHITE);
+        DrawFPS(8, 8);
     EndDrawing();
 }
 
+// --- game logic hook ---
+void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out) {
+    // read intents
+    InputState in = input_read();
 
-// ===== lógica del jugador =====
+    // world view (bounds come from here)
+    MapView mv = map_view_build();
 
-void game_update_and_get_proposal(const CP_Static* s, ProposedState* out){
-    (void)s;
-    int speed = 2; // px/frame para la prueba
-    if (IsKeyDown(KEY_RIGHT)) G.x += speed;
-    if (IsKeyDown(KEY_LEFT))  G.x -= speed;
-    if (IsKeyDown(KEY_DOWN))  G.y += speed;
-    if (IsKeyDown(KEY_UP))    G.y -= speed;
+    // apply simple physics (gravity, jump, bounds)
+    physics_step(&gPlayer, &in, &mv, GetFrameTime());
 
-    out->x = G.x; out->y = G.y;
-    out->vx = 0;  out->vy = 0;
-    out->flags = 0;
+    // build proposal for the server
+    out->x = gPlayer.x;
+    out->y = gPlayer.y;
+    out->vx = gPlayer.vx;
+    out->vy = gPlayer.vy;
+    out->flags = gPlayer.grounded ? 1 : 0;
+
+    (void)staticMap; // not needed here yet
 }
 
-
-void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int16_t yCorr, int16_t vyCorr){
+void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int16_t yCorr, int16_t vyCorr) {
     (void)tick; (void)platId;
-    if (grounded){ G.y = yCorr; }
-    else         { G.y += vyCorr; }
+
+    // snap or nudge according to server correction
+    if (grounded) {
+        gPlayer.y = yCorr;
+        gPlayer.vy = 0;
+        gPlayer.grounded = true;
+    } else {
+        gPlayer.y += vyCorr;
+        gPlayer.grounded = false;
+    }
+}
+
+void game_spawn_croc(int16_t x, int16_t y) {
+    // search for an inactive crocodile to spawn
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        if (!gCrocs[i].active) {
+            crocodile_spawn(&gCrocs[i], x, y);
+            return;
+        }
+    }
+    // if everything is active, overwrite the first one
+    crocodile_spawn(&gCrocs[0], x, y);
+}
+
+void game_spawn_fruit(int16_t x, int16_t y) {
+    // search for an inactive fruit to spawn
+    for (int i = 0; i < MAX_FRUITS; ++i) {
+        if (!gFruits[i].active) {
+            fruit_spawn(&gFruits[i], x, y);
+            return;
+        }
+    }
+    // if everything is active, overwrite the first one
+    fruit_spawn(&gFruits[0], x, y);
 }
