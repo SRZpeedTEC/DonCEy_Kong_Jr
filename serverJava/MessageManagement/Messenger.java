@@ -1,6 +1,9 @@
 package MessageManagement;
 import serverJava.GameServer;
 import java.io.*;
+
+import javax.xml.crypto.Data;
+
 import Utils.Rect;
 import Utils.MsgType;
 import Messages.OutboundMessage;
@@ -41,19 +44,22 @@ public class Messenger {
         out.flush();
     }
 
-    public void sendSpawnCroc(byte variant, int x, int y, int destClientId, DataOutputStream out) throws IOException {
+    public void sendSpawnCroc(Session session, byte variant, int x, int y) throws IOException {
+        DataOutputStream out = session.out();
         OutboundMessage message = crocFactory.spawn(variant, x, y);
         byte[] pl = message.payload();
-        Proto.writeHeader(out, message.type(), destClientId, 0, pl.length);
-        if (pl.length > 0) out.write(pl);
+        Proto.writeHeader(session.out(), message.type(), session.clientId(), 0, pl.length);
+        if (pl.length > 0) session.out().write(pl);
         out.flush();
+
     }
 
 
-    public void sendSpawnFruit(byte variant, int x, int y, int destClientId, DataOutputStream out) throws IOException {
+    public void sendSpawnFruit(Session session, byte variant, int x, int y) throws IOException {
+        DataOutputStream out = session.out();
         OutboundMessage message = fruitFactory.spawn(variant, x, y);
         byte[] pl = message.payload();
-        Proto.writeHeader(out, message.type(), destClientId, 0, pl.length);
+        Proto.writeHeader(out, message.type(), session.clientId(), 0, pl.length);
         if (pl.length > 0) out.write(pl);
         out.flush();
     }   
