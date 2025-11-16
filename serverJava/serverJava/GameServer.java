@@ -200,77 +200,66 @@ public class GameServer {
         System.out.println("Client " + id + " disconnected.");
     }
 
-        // Spawn a croc at the center of the given vine for a specific client
-    public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant) {
+    public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant, int pos, int segments){
+        Rect v = vines.get(vineIndex);
+        int x = v.x() + v.w()/2;
+        int y = quantizeY(v, pos, segments);
         ClientHandler h = clients.get(clientId);
-        if (h == null) {
-            System.out.println("GUI: no client " + clientId);
-            return;
-        }
-        if (vineIndex < 0 || vineIndex >= vines.size()) {
-            System.out.println("GUI: invalid vine index " + vineIndex);
-            return;
-        }
-        Rect r = vines.get(vineIndex);
-        int x = r.x() + r.w() / 2;
-        int y = r.y() + r.h() / 2;
-        h.sendSpawnCroc(variant, x, y);   
+        if (h != null) h.sendSpawnCroc(variant, x, y);
     }
 
-    // Optional: spawn croc on a platform instead of vine
-    public void spawnCrocOnPlatformForClient(int clientId, int platformIndex, byte variant) {
+    public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant, int pos, int segments){
+        Rect v = vines.get(vineIndex);
+        int x = v.x() + v.w()/2;
+        int y = quantizeY(v, pos, segments);
         ClientHandler h = clients.get(clientId);
-        if (h == null) {
-            System.out.println("GUI: no client " + clientId);
-            return;
-        }
-        if (platformIndex < 0 || platformIndex >= platforms.size()) {
-            System.out.println("GUI: invalid platform index " + platformIndex);
-            return;
-        }
-        Rect r = platforms.get(platformIndex);
-        int x = r.x() + r.w() / 2;
-        int y = r.y() + r.h() / 2;
-        h.sendSpawnCroc(variant, x, y);
+        if (h != null) h.sendSpawnFruit(variant, x, y);
     }
 
-    // Spawn a fruit at the center of the given vine for a specific client
-    public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant) {
+    public void spawnCrocOnPlatformForClient(int clientId, int platIndex, byte variant, int pos, int segments){
+        Rect p = platforms.get(platIndex);
+        int x = quantizeX(p, pos, segments);
+        int y = p.y() - 8; // o centro: p.y()+p.h()/2; ajusta a tu juego
         ClientHandler h = clients.get(clientId);
-        if (h == null) {
-            System.out.println("GUI: no client " + clientId);
-            return;
-        }
-        if (vineIndex < 0 || vineIndex >= vines.size()) {
-            System.out.println("GUI: invalid vine index " + vineIndex);
-            return;
-        }
-        Rect r = vines.get(vineIndex);
-        int x = r.x() + r.w() / 2;
-        int y = r.y() + r.h() / 2;
-
-        // TODO: change this to your real method name if needed
-        h.sendSpawnFruit(variant, x, y);
+        if (h != null) h.sendSpawnCroc(variant, x, y);
     }
 
-    // Spawn a fruit at the center of the given platform for a specific client
-    public void spawnFruitOnPlatformForClient(int clientId, int platformIndex, byte variant) {
+    public void spawnFruitOnPlatformForClient(int clientId, int platIndex, byte variant, int pos, int segments){
+        Rect p = platforms.get(platIndex);
+        int x = quantizeX(p, pos, segments);
+        int y = p.y() - 8;
         ClientHandler h = clients.get(clientId);
-        if (h == null) {
-            System.out.println("GUI: no client " + clientId);
-            return;
-        }
-        if (platformIndex < 0 || platformIndex >= platforms.size()) {
-            System.out.println("GUI: invalid platform index " + platformIndex);
-            return;
-        }
-        Rect r = platforms.get(platformIndex);
-        int x = r.x() + r.w() / 2;
-        int y = r.y() + r.h() / 2;
-
-        // TODO: change this to your real method name if needed
-        h.sendSpawnFruit(variant, x, y);
+        if (h != null) h.sendSpawnFruit(variant, x, y);
     }
+
+    public void removeFruitOnVineForClient(int clientId, int vineIndex, int pos, int segments){
+        Rect v = vines.get(vineIndex);
+        int x = v.x() + v.w()/2;
+        int y = quantizeY(v, pos, segments);
+        ClientHandler h = clients.get(clientId);
+        if (h != null) h.sendRemoveFruit(x, y);
+    }
+
+    public void removeFruitOnPlatformForClient(int clientId, int platIndex, int pos, int segments){
+        Rect p = platforms.get(platIndex);
+        int x = quantizeX(p, pos, segments);
+        int y = p.y() - 8;
+        ClientHandler h = clients.get(clientId);
+        if (h != null) h.sendRemoveFruit(x, y);
+    }
+
+
+
+    private static int quantizeY(Rect r, int pos, int segments){
+        double s = r.h() / (double)segments;
+        return r.y() + (int)Math.round((pos - 0.5) * s);
+    }
+
+    private static int quantizeX(Rect r, int pos, int segments){
+        double s = r.w() / (double)segments;
+        return r.x() + (int)Math.round((pos - 0.5) * s);
+    }
+
 
     public static void main(String[] args) throws Exception {
         int port = (args.length > 0) ? Integer.parseInt(args[0]) : 9090;

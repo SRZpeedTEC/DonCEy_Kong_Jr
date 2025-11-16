@@ -17,7 +17,16 @@ public class ServerGui {
 
     private final JRadioButton crocRadio;
     private final JRadioButton fruitRadio;
-    private final JComboBox<String> variantCombo;  // << nuevo
+    private final JComboBox<String> variantCombo;
+
+    private final JSpinner segmentsSpinner;     // N divisiones
+    private final JComboBox<Integer> posCombo;  // posición 1..N
+    private final JButton deleteFruitBtn;       // eliminar fruta
+
+    // Para que "Delete fruit" sepa dónde actuar
+    private enum Target { NONE, VINE, PLATFORM }
+    private Target lastTarget = Target.NONE;
+    private int lastIndex = -1;
 
     public ServerGui(GameServer server) {
         this.server = server;
@@ -28,7 +37,6 @@ public class ServerGui {
 
         // ---------- TOP PANEL ----------
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
-
         top.add(new JLabel("Target client:"));
 
         clientCombo = new JComboBox<>();
@@ -54,35 +62,53 @@ public class ServerGui {
         top.add(new JLabel("  Variant:"));
         top.add(variantCombo);
 
-        // Cambiar opciones de variante cuando cambia el modo
+        // Segments & Position
+        segmentsSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
+        ((JSpinner.DefaultEditor)segmentsSpinner.getEditor()).getTextField().setColumns(2);
+        posCombo = new JComboBox<>();
+        top.add(new JLabel("  Segments:"));
+        top.add(segmentsSpinner);
+        top.add(new JLabel("  Position:"));
+        top.add(posCombo);
+
+        // Delete fruit
+        deleteFruitBtn = new JButton("Delete fruit");
+        deleteFruitBtn.addActionListener(e -> deleteFruitAtSelection());
+        top.add(deleteFruitBtn);
+
+        // Eventos
         crocRadio.addActionListener(e -> loadVariantsForCroc());
         fruitRadio.addActionListener(e -> loadVariantsForFruit());
+        segmentsSpinner.addChangeListener(e -> fillPositions());
 
-        // carga inicial
+        // Cargas iniciales
         loadVariantsForCroc();
+        fillPositions();
 
         frame.add(top, BorderLayout.NORTH);
 
         // ---------- CENTER PANEL: vines & platforms ----------
         JPanel center = new JPanel(new GridLayout(2, 1));
 
+        // Vines panel
         JPanel vinesPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         vinesPanel.setBorder(new TitledBorder("Vines"));
         List<Rect> vines = server.getVines();
         for (int i = 0; i < vines.size(); i++) {
             final int idx = i;
             JButton b = new JButton("Vine " + i);
-            b.addActionListener(e -> spawnOnVine(idx));
+            b.addActionListener(e -> { lastTarget = Target.VINE; lastIndex = idx; spawnOnVine(idx); });
             vinesPanel.add(b);
         }
 
+        // Platforms panel
         JPanel platformsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         platformsPanel.setBorder(new TitledBorder("Platforms"));
         List<Rect> plats = server.getPlatforms();
         for (int i = 0; i < plats.size(); i++) {
             final int idx = i;
             JButton b = new JButton("Plat " + i);
-            b.addActionListener(e -> spawnOnPlatform(idx));
+            b.addActionListener(e -> { lastTarget = Target.PLATFORM; lastIndex = idx; spawnOnPlatform(idx); });
             platformsPanel.add(b);
         }
 
@@ -112,6 +138,16 @@ public class ServerGui {
         variantCombo.setSelectedIndex(0);
     }
 
+    private void fillPositions(){
+        posCombo.removeAllItems();
+        int N = getSegments();
+        for (int i=1;i<=N;i++) posCombo.addItem(i);
+        posCombo.setSelectedIndex(0);
+    }
+
+    private int getSegments(){ return (int) segmentsSpinner.getValue(); }
+    private int getPosition(){ return (Integer) posCombo.getSelectedItem(); }
+
     private byte resolveVariantCode(){
         String v = (String) variantCombo.getSelectedItem();
         if (crocRadio.isSelected()){
@@ -131,9 +167,7 @@ public class ServerGui {
         for (Integer id : server.getClientIdsSnapshot()) clientCombo.addItem(id);
     }
 
-    private Integer getSelectedClientId() {
-        return (Integer) clientCombo.getSelectedItem();
-    }
+    private Integer getSelectedClientId() { return (Integer) clientCombo.getSelectedItem(); }
 
     // Click en “Vine N”
     private void spawnOnVine(int vineIndex) {
@@ -143,10 +177,11 @@ public class ServerGui {
             return;
         }
         byte variant = resolveVariantCode();
+        int N = getSegments(), pos = getPosition();
         if (crocRadio.isSelected()) {
-            server.spawnCrocOnVineForClient(clientId, vineIndex, variant);   // << pasa variant
+            server.spawnCrocOnVineForClient(clientId, vineIndex, variant, pos, N);
         } else {
-            server.spawnFruitOnVineForClient(clientId, vineIndex, variant);  // << pasa variant
+            server.spawnFruitOnVineForClient(clientId, vineIndex, variant, pos, N);
         }
     }
 
@@ -158,10 +193,30 @@ public class ServerGui {
             return;
         }
         byte variant = resolveVariantCode();
+        int N = getSegments(), pos = getPosition();
         if (crocRadio.isSelected()) {
-            server.spawnCrocOnPlatformForClient(clientId, platformIndex, variant);  // << pasa variant
+            server.spawnCrocOnPlatformForClient(clientId, platformIndex, variant, pos, N);
         } else {
-            server.spawnFruitOnPlatformForClient(clientId, platformIndex, variant); // << pasa variant
+            server.spawnFruitOnPlatformForClient(clientId, platformIndex, variant, pos, N);
+        }
+    }
+
+    // “Delete fruit” actúa sobre el último contenedor clicado (liana/plataforma) usando el segmento actual
+    private void deleteFruitAtSelection(){
+        Integer clientId = getSelectedClientId();
+        if (clientId == null) {
+            JOptionPane.showMessageDialog(frame, "No client selected", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (lastTarget == Target.NONE || lastIndex < 0) {
+            JOptionPane.showMessageDialog(frame, "Click primero en una Vine/Plat para seleccionar el contenedor.", "Info", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int N = getSegments(), pos = getPosition();
+        switch (lastTarget){
+            case VINE -> server.removeFruitOnVineForClient(clientId, lastIndex, pos, N);
+            case PLATFORM -> server.removeFruitOnPlatformForClient(clientId, lastIndex, pos, N);
+            default -> { /* nada */ }
         }
     }
 

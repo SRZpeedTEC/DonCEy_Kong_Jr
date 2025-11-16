@@ -38,6 +38,13 @@ static void on_spawn_fruit(const uint8_t *p, uint32_t n){
     game_spawn_fruit(variant, x, y);
 }
 
+static void on_remove_fruit(const uint8_t* p, uint32_t n){
+    if (n < 4) return;
+    int16_t x = (int16_t)((p[0]<<8) | p[1]);
+    int16_t y = (int16_t)((p[2]<<8) | p[3]);
+    game_remove_fruit_at(x, y);  // << delega al módulo de juego
+}
+
 
 
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
@@ -117,6 +124,8 @@ int main(int argCount, char** argValues){
     disp_register(CP_TYPE_STATE_BUNDLE, on_state_bundle);
     disp_register(CP_TYPE_SPAWN_CROC, on_spawn_croc);
     disp_register(CP_TYPE_SPAWN_FRUIT, on_spawn_fruit);
+    disp_register(CP_TYPE_REMOVE_FRUIT, on_remove_fruit);
+
 
 
     // ACK

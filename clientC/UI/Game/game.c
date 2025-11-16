@@ -174,3 +174,15 @@ void game_spawn_fruit(uint8_t variant, int16_t x, int16_t y) {
     // if everything is active, overwrite the first one
     fruit_spawn(&gFruits[0], variant, x, y);
 }
+
+
+void game_remove_fruit_at(int16_t x, int16_t y){
+    for (int i = 0; i < MAX_FRUITS; ++i) {
+        if (!gFruits[i].active) continue;
+        int16_t fx = gFruits[i].x, fy = gFruits[i].y, fw = gFruits[i].w, fh = gFruits[i].h;
+        if (x >= fx && x < fx + fw && y >= fy && y < fy + fh) {
+            gFruits[i].active = false;
+            break;
+        }
+    }
+}

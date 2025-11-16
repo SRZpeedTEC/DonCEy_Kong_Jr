@@ -64,4 +64,15 @@ public class Messenger {
         out.flush();
     }   
 
+    public void sendRemoveFruit(Session session, int x, int y) throws IOException {
+        byte[] pl = new byte[]{
+            (byte)(x>>8),(byte)x,
+            (byte)(y>>8),(byte)y
+        };
+        Proto.writeHeader(session.out(), MsgType.REMOVE_FRUIT, session.clientId(), 0, pl.length);
+        session.out().write(pl);
+        session.out().flush();
+    }
+
+
 }

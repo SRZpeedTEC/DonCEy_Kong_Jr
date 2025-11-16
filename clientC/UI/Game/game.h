@@ -15,3 +15,5 @@ void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int1
 void game_spawn_croc(uint8_t variant, int16_t x, int16_t y);
 
 void game_spawn_fruit(uint8_t variant, int16_t x, int16_t y);
+
+void game_remove_fruit_at(int16_t x, int16_t y);

@@ -67,6 +67,16 @@ public class ClientHandler extends Thread {
         }
     }
 
+    public void sendRemoveFruit(int x, int y){
+        try {
+            messenger.sendRemoveFruit(session, x, y);
+            session.log("Sent REMOVE_FRUIT to " + clientId + " at ("+x+","+y+")");
+        } catch(IOException e){
+            session.log("Error REMOVE_FRUIT: " + e.getMessage());
+        }
+    }
+
+
     @Override
     public void run() {
         try {
