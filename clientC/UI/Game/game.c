@@ -4,13 +4,13 @@
 #include <string.h>
 
 #include "../Render/render.h"
-#include "Logic/input.h"
-#include "Logic/player.h"
-#include "Logic/physics.h"
-#include "Logic/map.h"
-#include "Logic/crocodile.h"
-#include "Logic/constants.h"
-#include "Logic/fruit.h"
+#include "logic/input.h"
+#include "logic/player.h"
+#include "logic/physics.h"
+#include "logic/map.h"
+#include "logic/crocodile.h"
+#include "logic/constants.h"
+#include "logic/fruit.h"
 
 // window/state
 static int VW, VH, SCALE;
