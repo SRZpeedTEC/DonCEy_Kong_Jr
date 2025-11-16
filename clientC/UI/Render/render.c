@@ -31,4 +31,6 @@ void render_draw_level(const struct CP_Static* staticMap
 
     // player (orange outline)
     DrawRectangleLines(playerX, playerY, playerW, playerH, ORANGE);
+
+    
 }

@@ -11,34 +11,35 @@
 #include "../UtilsC/tlv.h"
 
 
-// ---- spawn entities from the server ----
-static void on_spawn_croc(const uint8_t *payload, uint32_t len){
-    if (len < 4) {
-        printf("[CROC] Invalid payload size %u\n", len);
-        return;
-    }
-
-    int16_t x = (payload[0] << 8) | payload[1];
-    int16_t y = (payload[2] << 8) | payload[3];
-
-    printf("[CROC] Spawn crocodile at (%d, %d)\n", x, y);
-    game_spawn_croc(x, y);
-}
-
-static void on_spawn_fruit(const uint8_t *payload, uint32_t len){
-    if (len < 4) {
-        printf("[FRUIT] Invalid payload size %u\n", len);
-        return;
-    }
-
-    int16_t x = (payload[0] << 8) | payload[1];
-    int16_t y = (payload[2] << 8) | payload[3];
-
-    printf("[FRUIT] Spawn fruit at (%d, %d)\n", x, y);
-    game_spawn_fruit(x, y);
-}
-
 // ---- dispatcher ----
+// ---- spawn entities from the server ----
+static void on_spawn_croc(const uint8_t *p, uint32_t n){
+    uint8_t variant = 0; int16_t x=0, y=0;
+    if (n == 4) { // legado
+        x = (int16_t)((p[0]<<8)|p[1]); y = (int16_t)((p[2]<<8)|p[3]);
+    } else if (n >= 5) {
+        variant = p[0];
+        x = (int16_t)((p[1]<<8)|p[2]); y = (int16_t)((p[3]<<8)|p[4]);
+    } else return;
+
+    game_spawn_croc(variant, x, y);
+}
+
+
+static void on_spawn_fruit(const uint8_t *p, uint32_t n){
+    uint8_t variant = 0; int16_t x=0, y=0;
+    if (n == 4) {
+        x = (int16_t)((p[0]<<8)|p[1]); y = (int16_t)((p[2]<<8)|p[3]);
+    } else if (n >= 5) {
+        variant = p[0];
+        x = (int16_t)((p[1]<<8)|p[2]); y = (int16_t)((p[3]<<8)|p[4]);
+    } else return;
+
+    game_spawn_fruit(variant, x, y);
+}
+
+
+
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
 static FrameHandler g_frameHandlers[256];
 static void disp_register(uint8_t frameType, FrameHandler handlerFn)

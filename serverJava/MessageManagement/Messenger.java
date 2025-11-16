@@ -41,27 +41,21 @@ public class Messenger {
         out.flush();
     }
 
-    public void sendSpawnCroc(Session sess, byte variant, int x, int y) throws IOException {
-        byte[] pl = packVariantXY(variant, x, y);
-        Proto.writeHeader(sess.out(), MsgType.CROC_SPAWN, sess.clientId(), 0, pl.length);
-        sess.out().write(pl);
-        sess.out().flush();
+    public void sendSpawnCroc(byte variant, int x, int y, int destClientId, DataOutputStream out) throws IOException {
+        OutboundMessage message = crocFactory.spawn(variant, x, y);
+        byte[] pl = message.payload();
+        Proto.writeHeader(out, message.type(), destClientId, 0, pl.length);
+        if (pl.length > 0) out.write(pl);
+        out.flush();
     }
 
 
-    public void sendSpawnFruit(Session sess, byte variant, int x, int y) throws IOException {
-        byte[] pl = packVariantXY(variant, x, y);
-        Proto.writeHeader(sess.out(), MsgType.FRUIT_SPAWN, sess.clientId(), 0, pl.length);
-        sess.out().write(pl);
-        sess.out().flush();
-    }
-
-    private static byte[] packVariantXY(byte variant, int x, int y){
-    return new byte[]{
-        variant,
-        (byte)(x >> 8), (byte)x,
-        (byte)(y >> 8), (byte)y
-    };
-}
+    public void sendSpawnFruit(byte variant, int x, int y, int destClientId, DataOutputStream out) throws IOException {
+        OutboundMessage message = fruitFactory.spawn(variant, x, y);
+        byte[] pl = message.payload();
+        Proto.writeHeader(out, message.type(), destClientId, 0, pl.length);
+        if (pl.length > 0) out.write(pl);
+        out.flush();
+    }   
 
 }

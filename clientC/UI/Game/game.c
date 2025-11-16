@@ -84,18 +84,19 @@ void game_draw_static(const CP_Static* staticMap) {
         // draw all active crocodiles
         for (int i = 0; i < MAX_CROCS; ++i) {
             if (gCrocs[i].active) {
-                DrawRectangleLines(gCrocs[i].x, gCrocs[i].y,
-                                gCrocs[i].w, gCrocs[i].h,
-                                RED);
+                Color col = (gCrocs[i].variant == CROC_VARIANT_BLUE) ? BLUE : RED;
+                DrawRectangle(gCrocs[i].x, gCrocs[i].y, gCrocs[i].w, gCrocs[i].h, col);
             }
         }
         
         // draw all active fruits
         for (int i = 0; i < MAX_FRUITS; ++i) {
             if (gFruits[i].active) {
-                DrawRectangleLines(gFruits[i].x, gFruits[i].y,
-                                gFruits[i].w, gFruits[i].h,
-                                YELLOW);
+                Color col = YELLOW;
+                if      (gFruits[i].variant == FRUIT_VARIANT_APPLE)  col = PINK;
+                else if (gFruits[i].variant == FRUIT_VARIANT_ORANGE) col = ORANGE;
+                else                                                 col = YELLOW; // BANANA
+                DrawRectangle(gFruits[i].x, gFruits[i].y, gFruits[i].w, gFruits[i].h, col);
             }
         }
 
@@ -150,26 +151,26 @@ void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int1
     }
 }
 
-void game_spawn_croc(int16_t x, int16_t y) {
+void game_spawn_croc(uint8_t variant, int16_t x, int16_t y) {
     // search for an inactive crocodile to spawn
     for (int i = 0; i < MAX_CROCS; ++i) {
         if (!gCrocs[i].active) {
-            crocodile_spawn(&gCrocs[i], x, y);
+            crocodile_spawn(&gCrocs[i], variant, x, y);
             return;
         }
     }
     // if everything is active, overwrite the first one
-    crocodile_spawn(&gCrocs[0], x, y);
+    crocodile_spawn(&gCrocs[0], variant, x, y);
 }
 
-void game_spawn_fruit(int16_t x, int16_t y) {
+void game_spawn_fruit(uint8_t variant, int16_t x, int16_t y) {
     // search for an inactive fruit to spawn
     for (int i = 0; i < MAX_FRUITS; ++i) {
         if (!gFruits[i].active) {
-            fruit_spawn(&gFruits[i], x, y);
+            fruit_spawn(&gFruits[i], variant, x, y);
             return;
         }
     }
     // if everything is active, overwrite the first one
-    fruit_spawn(&gFruits[0], x, y);
+    fruit_spawn(&gFruits[0], variant, x, y);
 }
