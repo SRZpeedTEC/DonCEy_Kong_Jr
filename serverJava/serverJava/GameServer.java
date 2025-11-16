@@ -200,49 +200,44 @@ public class GameServer {
         System.out.println("Client " + id + " disconnected.");
     }
 
-    public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant, int pos, int segments){
+    public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
         int x = v.x() + v.w()/2;
-        int y = quantizeY(v, pos, segments);
+        int y = quantizeCenterY(v, pos);
         ClientHandler h = clients.get(clientId);
         if (h != null) h.sendSpawnCroc(variant, x, y);
     }
-
-    public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant, int pos, int segments){
+    public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
         int x = v.x() + v.w()/2;
-        int y = quantizeY(v, pos, segments);
+        int y = quantizeCenterY(v, pos);
         ClientHandler h = clients.get(clientId);
         if (h != null) h.sendSpawnFruit(variant, x, y);
     }
-
-    public void spawnCrocOnPlatformForClient(int clientId, int platIndex, byte variant, int pos, int segments){
+    public void spawnCrocOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
-        int x = quantizeX(p, pos, segments);
-        int y = p.y() - 8; // o centro: p.y()+p.h()/2; ajusta a tu juego
+        int x = quantizeCenterX(p, pos);
+        int y = p.y() - 8; // ajusta si quieres el centro: p.y()+p.h()/2
         ClientHandler h = clients.get(clientId);
         if (h != null) h.sendSpawnCroc(variant, x, y);
     }
-
-    public void spawnFruitOnPlatformForClient(int clientId, int platIndex, byte variant, int pos, int segments){
+    public void spawnFruitOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
-        int x = quantizeX(p, pos, segments);
+        int x = quantizeCenterX(p, pos);
         int y = p.y() - 8;
         ClientHandler h = clients.get(clientId);
         if (h != null) h.sendSpawnFruit(variant, x, y);
     }
-
-    public void removeFruitOnVineForClient(int clientId, int vineIndex, int pos, int segments){
+    public void removeFruitOnVineForClient(int clientId, int vineIndex, int pos){
         Rect v = vines.get(vineIndex);
         int x = v.x() + v.w()/2;
-        int y = quantizeY(v, pos, segments);
+        int y = quantizeCenterY(v, pos);
         ClientHandler h = clients.get(clientId);
         if (h != null) h.sendRemoveFruit(x, y);
     }
-
-    public void removeFruitOnPlatformForClient(int clientId, int platIndex, int pos, int segments){
+    public void removeFruitOnPlatformForClient(int clientId, int platIndex, int pos){
         Rect p = platforms.get(platIndex);
-        int x = quantizeX(p, pos, segments);
+        int x = quantizeCenterX(p, pos);
         int y = p.y() - 8;
         ClientHandler h = clients.get(clientId);
         if (h != null) h.sendRemoveFruit(x, y);
@@ -250,13 +245,14 @@ public class GameServer {
 
 
 
-    private static int quantizeY(Rect r, int pos, int segments){
-        double s = r.h() / (double)segments;
+    private static final int N_FIXED = 5;
+
+    private static int quantizeCenterY(Rect r, int pos /*1..5*/){
+        double s = r.h() / (double)N_FIXED;
         return r.y() + (int)Math.round((pos - 0.5) * s);
     }
-
-    private static int quantizeX(Rect r, int pos, int segments){
-        double s = r.w() / (double)segments;
+    private static int quantizeCenterX(Rect r, int pos /*1..5*/){
+        double s = r.w() / (double)N_FIXED;
         return r.x() + (int)Math.round((pos - 0.5) * s);
     }
 
