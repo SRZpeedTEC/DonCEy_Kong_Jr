@@ -37,3 +37,6 @@ int collision_find_current_vine_index(const Player* player, const MapView* map);
 // find a neighbor vine that can be reached by stretching left/right
 // direction: -1 = reach left, +1 = reach right
 int collision_find_neighbor_vine_reachable(const Player* player, const MapView* map, int currentVineIndex, int direction);
+
+// updates Jr state when grabbed to two vines
+void collision_update_between_vines_state(Player* player, const MapView* map);

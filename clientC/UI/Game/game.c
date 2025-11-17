@@ -2,6 +2,7 @@
 #include "static_map.h"
 #include "raylib.h"
 #include <string.h>
+#include <stdio.h>
 
 #include "../Render/render.h"
 #include "logic/input.h"
@@ -115,8 +116,14 @@ void game_draw_static(const CP_Static* staticMap) {
         bool betweenVines = player_between_vines(&gPlayer, &debugView);
 
         DrawText(gPlayer.onVine ? "ON VINE" : "NOT ON VINE", 8, 24, 10, WHITE);
-        if (betweenVines) {
+        if (gPlayer.betweenVines) {
             DrawText("BETWEEN VINES", 8, 36, 10, YELLOW);
+            char buf[64];
+            snprintf(buf, sizeof(buf), "LEFT:%d RIGHT:%d", gPlayer.vineLeftIndex, gPlayer.vineRightIndex);
+            DrawText(buf, 8, 48, 10, WHITE);
+        }
+        if (gPlayer.vineForcedFall) {
+        DrawText("FORCED FALL", 8, 48, 10, SKYBLUE);
         }
 
         DrawFPS(8, 8);

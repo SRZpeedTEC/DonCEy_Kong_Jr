@@ -7,8 +7,11 @@
 #define JUMP_ASCENT_SPEED   -1   // very slow upward motion
 #define JUMP_ASCENT_FRAMES  18   // how many frames we keep ascending
 
-#define VINE_CLIMB_SPEED 1 // speed used when climbing vines (pixels per frame)
+// climbing speed when holding a single vine
+#define VINE_CLIMB_SPEED_SLOW   1
 
+// climbing speed when holding two vines (between vines)
+#define VINE_CLIMB_SPEED_FAST   2
 
 // Maximum number of crocodiles in the game
 #define MAX_CROCS 16

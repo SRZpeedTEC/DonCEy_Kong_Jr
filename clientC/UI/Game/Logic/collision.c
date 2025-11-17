@@ -93,7 +93,7 @@ static IntRect player_vine_reach_rect(const Player* p, int direction) {
     int offsetY = (fullHeight - probeHeight) / 2;
 
     // how far jr stretches beyond his body
-    const int extraReach = 6; // PODEMOS CAMBIAR ESTO PARA VER EL AGARRE. <------------------------------
+    const int extraReach = 40; // PODEMOS CAMBIAR ESTO PARA VER EL AGARRE. <------------------------------
 
     if (direction > 0) {
         // reaching to the right
@@ -117,27 +117,9 @@ static IntRect player_vine_reach_rect(const Player* p, int direction) {
 bool player_between_vines(const Player* player,
                           const MapView* map)
 {
-    if (!player || !map || !map->data) return false;
-
-    const CP_Static* st = (const CP_Static*)map->data;
-    if (!st->vines || st->nVines < 2) return false;
-
-    IntRect pr = player_vine_rect(player);
-    int overlapCount = 0;
-
-    for (uint16_t i = 0; i < st->nVines; i++) {
-        IntRect vr = plat_rect(&st->vines[i]);
-
-        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height,
-                            vr.left, vr.top, vr.width, vr.height))
-        {
-            overlapCount++;
-            if (overlapCount >= 2)
-                return true; // inner rect is touching at least two vines
-        }
-    }
-
-    return false;
+    (void)map; // not needed now
+    if (!player) return false;
+    return player->betweenVines;
 }
 
 //handle vertical hit (top or bottom) against one platform
@@ -355,65 +337,138 @@ int collision_find_current_vine_index(const Player* player,
     return -1; // no vine found
 }
 
-// find a neighbor vine that jr can reach by stretching horizontally.
-// direction: -1 = left, +1 = right
-// currentVineIndex: the vine jr is currently on
-// returns the index of the neighbor vine, or -1 if none is reachable.
+// find closest vine to the left or right that jr can reach when stretching.
+// direction: -1 = left, +1 = right.
 int collision_find_neighbor_vine_reachable(const Player* player,
                                            const MapView* map,
-                                           int currentVineIndex,
+                                           int currentIndex,
                                            int direction)
 {
-    if (!player || !map || !map->data)
-        return -1;
+    if (!player || !map || !map->data) return -1;
+    if (direction == 0) return -1;
 
     const CP_Static* st = (const CP_Static*)map->data;
-    if (!st->vines || st->nVines == 0)
-        return -1;
+    if (!st->vines || st->nVines == 0) return -1;
+    if (currentIndex < 0 || currentIndex >= (int)st->nVines) return -1;
 
-    if (currentVineIndex < 0 || currentVineIndex >= (int)st->nVines)
-        return -1;
-
-    // larger rect used when jr “stretches” to reach another vine
+    // rect of how far jr can stretch in this direction
     IntRect reach = player_vine_reach_rect(player, direction);
 
-    // center of the current vine (used to measure relative distance)
-    IntRect currentVR = plat_rect(&st->vines[currentVineIndex]);
-    int currentCenterX = currentVR.left + currentVR.width / 2;
+    const CP_Rect* cur = &st->vines[currentIndex];
+    int curCenterX = cur->x + cur->w / 2;
 
     int bestIndex = -1;
-    int bestDxAbs = 0;
+    int bestDist  = 0;
 
-    // test all vines as potential neighbors
     for (uint16_t i = 0; i < st->nVines; i++) {
+        if ((int)i == currentIndex) continue;
 
-        if ((int)i == currentVineIndex)
-            continue; // skip the vine already holding
+        const CP_Rect* v = &st->vines[i];
+        IntRect vr = plat_rect(v);
 
-        IntRect vr = plat_rect(&st->vines[i]);
+        // need some vertical overlap between reach window and vine
+        bool vert = (reach.bottom > vr.top && reach.top < vr.bottom);
+        if (!vert) continue;
 
-        // must overlap the reach-rect to be considered
+        // vine must actually intersect the reach rect horizontally
         if (!rects_overlap_i(reach.left, reach.top, reach.width, reach.height,
-                             vr.left, vr.top, vr.width, vr.height))
-        {
+                             vr.left, vr.top, vr.width, vr.height)) {
             continue;
         }
 
-        // compute horizontal direction relative to current vine
-        int vineCenterX = vr.left + vr.width / 2;
-        int dx = vineCenterX - currentCenterX;
+        int centerX = v->x + v->w / 2;
+        int dx = centerX - curCenterX;
 
-        // make sure vine is actually on the requested side
-        if (direction > 0 && dx <= 0) continue; // looking right
-        if (direction < 0 && dx >= 0) continue; // looking left
+        // enforce correct side
+        if (direction > 0 && dx <= 0) continue; // need vine to the right
+        if (direction < 0 && dx >= 0) continue; // need vine to the left
 
-        // pick the closest reachable vine on that side
-        int dxAbs = (dx < 0) ? -dx : dx;
-        if (bestIndex < 0 || dxAbs < bestDxAbs) {
+        int dist = (dx > 0) ? dx : -dx;
+        if (bestIndex < 0 || dist < bestDist) {
             bestIndex = (int)i;
-            bestDxAbs = dxAbs;
+            bestDist  = dist;
         }
     }
 
-    return bestIndex; // -1 if none found
+    return bestIndex;
+}
+
+void collision_update_between_vines_state(Player* player,
+                                          const MapView* map)
+{
+    if (!player || !map || !map->data) return;
+    if (!player->betweenVines) return;
+
+    const CP_Static* st = (const CP_Static*)map->data;
+    if (!st->vines || st->nVines == 0) {
+        player->betweenVines = false;
+        player->onVine       = false;
+        return;
+    }
+
+    int li = player->vineLeftIndex;
+    int ri = player->vineRightIndex;
+
+    if (li < 0 || li >= (int)st->nVines ||
+        ri < 0 || ri >= (int)st->nVines ||
+        li == ri)
+    {
+        // bad pair, drop state
+        player->betweenVines = false;
+        player->onVine       = false;
+        return;
+    }
+
+    const CP_Rect* lv = &st->vines[li];
+    const CP_Rect* rv = &st->vines[ri];
+
+    // "hands" y-position: middle of player
+    int grabY = player->y + player->h / 2;
+
+    bool onLeft =
+        (grabY >= lv->y) && (grabY <= lv->y + lv->h);
+    bool onRight =
+        (grabY >= rv->y) && (grabY <= rv->y + rv->h);
+
+    // still holding both vines
+    if (onLeft && onRight) {
+        player->onVine = true;
+        return;
+    }
+
+    // only left vine still under Jr -> stay on left vine only
+    if (onLeft && !onRight) {
+        player->betweenVines = false;
+        player->onVine       = true;
+
+        int vineCenterX   = lv->x + lv->w / 2;
+        int playerCenterX = player->x + player->w / 2;
+
+        if (playerCenterX <= vineCenterX) {
+            player->x = lv->x - (player->w - 1);
+        } else {
+            player->x = lv->x + lv->w - 1;
+        }
+        return;
+    }
+
+    // only right vine still under Jr -> stay on right vine only
+    if (!onLeft && onRight) {
+        player->betweenVines = false;
+        player->onVine       = true;
+
+        int vineCenterX   = rv->x + rv->w / 2;
+        int playerCenterX = player->x + player->w / 2;
+
+        if (playerCenterX <= vineCenterX) {
+            player->x = rv->x - (player->w - 1);
+        } else {
+            player->x = rv->x + rv->w - 1;
+        }
+        return;
+    }
+
+    // no vine supports Jr at this height anymore
+    player->betweenVines = false;
+    player->onVine       = false;
 }
