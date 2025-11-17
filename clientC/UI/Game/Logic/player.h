@@ -11,6 +11,9 @@ typedef struct {
     bool grounded;     // true if standing on ground
     bool onVine;  // true if player is touching a vine
 
+    int  vineSide;      // -1 = left of vine, +1 = right of vine
+    bool vineSideLock;  // true after swapping side, until no horizontal input
+
     // jump state for constant-velocity model
     bool jumping;         // true while ascending
     int  jumpFramesLeft;  // remaining ascent frames

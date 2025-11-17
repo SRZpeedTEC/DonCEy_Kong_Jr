@@ -106,70 +106,171 @@ static void updateGroundedFromFloor(Player* player, int worldTop, int worldHeigh
     }
 }
 
-// handle left/right input while on a vine:
-// - pressing "towards" vine swaps side around the same vine
-// - pressing "away" from vine tries to reach a neighbor; if none, drops
+// handle horizontal input while on a vine.
+// left/right can either swap side on the same vine or try to reach a neighbor.
+// vineSideLock makes sure a single key press does not do both.
 static bool handleVineHorizontal(Player* player,
                                  const InputState* input,
                                  const MapView* map)
 {
-    if (!input->left && !input->right) return false; // no horizontal intent
+    if (!player || !input || !map || !map->data)
+        return false;
+
+    // no horizontal input: release lock and do nothing
+    if (!input->left && !input->right) {
+        player->vineSideLock = false;
+        return false;
+    }
 
     int currentIndex = collision_find_current_vine_index(player, map);
     if (currentIndex < 0) {
-        // no vine actually under reach -> treat as drop
-        player->onVine = false;
-        return true; // dropped
+        // lost the vine for some reason: drop
+        player->onVine       = false;
+        player->vineSideLock = false;
+        return true;
     }
 
-    // get side: compare player center vs vine center
     const CP_Static* st = (const CP_Static*)map->data;
-    const CP_Rect* v = &st->vines[currentIndex];
+    const CP_Rect* v    = &st->vines[currentIndex];
+
     int vineCenterX   = v->x + v->w / 2;
     int playerCenterX = player->x + player->w / 2;
-    int side = 0; // -1 = player mostly left, +1 = mostly right
-    if (playerCenterX < vineCenterX) side = -1;
-    else if (playerCenterX > vineCenterX) side = 1;
-    else side = 1; // arbitrary if perfectly centered
 
-    // if pressing opposite to side, we just swap around the same vine
-    if (input->left && side > 0) {
-        // was on right, go to left side of same vine
-        player->x = v->x - player->w;
-        return false;
-    }
-    if (input->right && side < 0) {
-        // was on left, go to right side of same vine
-        player->x = v->x + v->w;
-        return false;
-    }
+    // true if player is visually to the right of the vine
+    bool onRightSide = (playerCenterX > vineCenterX);
 
-    // pressing "away" from current side: try to grab a neighbor vine
+    // current input direction: -1 = left, +1 = right
     int dir = 0;
     if (input->left)  dir = -1;
     if (input->right) dir = +1;
     if (dir == 0) return false;
 
-    int neighborIndex = collision_find_neighbor_vine_reachable(player, map,
-                                                               currentIndex, dir);
-    if (neighborIndex < 0) {
-        // no neighbor vine in reach: jr drops
-        player->onVine = false;
-        return true; // dropped
+    // "towards" means moving closer to the vine center
+    bool towards = (dir < 0 && onRightSide) || (dir > 0 && !onRightSide);
+    bool away    = !towards;
+
+    // step 1: pressing towards the vine -> swap side on this vine
+    if (towards) {
+        if (!player->vineSideLock) {
+            // swap to opposite side on the same vine, with 1px overlap
+            if (onRightSide) {
+                // was on right, go to left
+                player->x = v->x - (player->w - 1);
+            } else {
+                // was on left, go to right
+                player->x = v->x + v->w - 1;
+            }
+            player->vineSideLock = true;
+        }
+        return false;
     }
 
-    // snap to neighbor vine side (right or left depending on direction)
-    const CP_Rect* nv = &st->vines[neighborIndex];
-    if (dir > 0) {
-        // grabbing a vine to the right
-        player->x = nv->x + nv->w;
-    } else {
-        // grabbing a vine to the left
-        player->x = nv->x - player->w;
+    // step 2: pressing away from the vine
+    // this should only act if the player already released the key after swapping
+    if (away) {
+        if (player->vineSideLock) {
+            // still same key hold after swap -> ignore
+            return false;
+        }
+
+        // try to reach a neighbor vine in this direction
+        int neighborIndex = collision_find_neighbor_vine_reachable(player, map,
+                                                                   currentIndex, dir);
+        if (neighborIndex < 0) {
+            // no neighbor vine: drop and move a bit away to avoid instant re-grab
+            if (dir > 0) {
+                player->x += 2;
+            } else {
+                player->x -= 2;
+            }
+            player->onVine       = false;
+            player->vineSideLock = false;
+            return true; // forced drop
+        }
+
+        // grab neighbor vine on the side of movement, with small overlap
+        const CP_Rect* nv = &st->vines[neighborIndex];
+        if (dir > 0) {
+            // grabbing a vine to the right
+            player->x = nv->x + nv->w - 1;
+        } else {
+            // grabbing a vine to the left
+            player->x = nv->x - (player->w - 1);
+        }
+
+        player->vineSideLock = true; // need to release before next change
+        return false;
     }
 
-    return false; // still on some vine
+    return false;
 }
+
+// update vine state after movement.
+// this handles forced drops, entering a vine and snapping to a side.
+static void updateVineStateAfterMovement(Player* player,
+                                         const MapView* map,
+                                         bool wasOnVine,
+                                         bool forcedDrop)
+{
+    if (!player || !map) return;
+
+    // if we forced a drop this frame, clear vine state and exit
+    if (forcedDrop) {
+        player->onVine       = false;
+        player->vineSide     = 0;
+        player->vineSideLock = false;
+        return;
+    }
+
+    // normal case: recompute onVine from geometry
+    bool nowOnVine = player_touching_vine(player, map);
+
+    // if we just grabbed a vine this frame, snap to left or right side
+    if (!wasOnVine && nowOnVine) {
+    int idx = collision_find_current_vine_index(player, map);
+    if (idx >= 0 && map->data) {
+        const CP_Static* st = (const CP_Static*)map->data;
+        const CP_Rect* v   = &st->vines[idx];
+
+        // decide entry side mainly from horizontal velocity
+        int side = 0; // -1 = left side of vine, +1 = right side
+        if (player->vx > 0) {
+            // jr was moving right -> came from left -> attach on left side
+            side = -1;
+        } else if (player->vx < 0) {
+            // jr was moving left -> came from right -> attach on right side
+            side = +1;
+        } else {
+            // no clear horizontal movement, fallback to center comparison
+            int vineCenterX   = v->x + v->w / 2;
+            int playerCenterX = player->x + player->w / 2;
+            side = (playerCenterX <= vineCenterX) ? -1 : +1;
+        }
+
+        if (side < 0) {
+            // snap to left side, overlapping 1 pixel into the vine
+            player->x = v->x - (player->w - 1);
+            player->vineSide = -1;
+        } else {
+            // snap to right side, overlapping 1 pixel into the vine
+            player->x = v->x + v->w - 1;
+            player->vineSide = +1;
+        }
+
+        // being on a vine cancels jump/fall
+        player->vy = 0;
+        player->jumping = false;
+        player->jumpFramesLeft = 0;
+        player->grounded = false;
+
+        // fresh state for horizontal logic on the vine
+        player->vineSideLock = false;
+    }
+    player->onVine = nowOnVine;
+}
+    }
+
+    
 
 
 
@@ -183,7 +284,8 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     int worldLeft, worldTop, worldWidth, worldHeight;
     map_get_world_bounds(&worldLeft, &worldTop, &worldWidth, &worldHeight);
 
-     bool forcedDrop = false;
+    bool forcedDrop = false;
+    bool wasOnVine  = player->onVine;
 
     // horizontal phase
     if (player->onVine) {
@@ -217,9 +319,8 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     // final grounded state (floor or platform top)
     update_player_grounded(player, map, worldTop, worldHeight);
 
-    // detect vine contact for next frame (uses inner vine rect)
-    // update onVine only if we did not force a drop this frame
-    if (!forcedDrop) {
-        player->onVine = player_touching_vine(player, map);
-    }
+    
+    // vine state update
+    updateVineStateAfterMovement(player, map, wasOnVine, forcedDrop);
+
 }

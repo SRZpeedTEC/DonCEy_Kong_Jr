@@ -11,6 +11,7 @@
 #include "logic/crocodile.h"
 #include "logic/constants.h"
 #include "logic/fruit.h"
+#include "logic/collision.h"
 
 // window/state
 static int VW, VH, SCALE;
@@ -110,7 +111,13 @@ void game_draw_static(const CP_Static* staticMap) {
         DrawTexturePro(rt.texture, src, dst, (Vector2){0, 0}, 0, WHITE);
 
             // debug: show if player is on a vine
+        MapView debugView = map_view_build();
+        bool betweenVines = player_between_vines(&gPlayer, &debugView);
+
         DrawText(gPlayer.onVine ? "ON VINE" : "NOT ON VINE", 8, 24, 10, WHITE);
+        if (betweenVines) {
+            DrawText("BETWEEN VINES", 8, 36, 10, YELLOW);
+        }
 
         DrawFPS(8, 8);
     EndDrawing();

@@ -63,9 +63,12 @@ static IntRect player_vine_rect(const Player* p) {
     // center the probe vertically inside the player hitbox
     int offsetY = (fullHeight - probeHeight) / 2;
 
+    // small horizontal tolerance to make grabbing vines easier
+    int extraX = 1;
+
     r.left   = fullLeft;
     r.top    = fullTop + offsetY;
-    r.width  = fullWidth;
+    r.width  = fullWidth + 2 * extraX;
     r.height = probeHeight;
     r.right  = r.left + r.width;
     r.bottom = r.top  + r.height;
@@ -110,7 +113,32 @@ static IntRect player_vine_reach_rect(const Player* p, int direction) {
     return r;
 }
 
+// check if player is vertically overlapping vines on both sides
+bool player_between_vines(const Player* player,
+                          const MapView* map)
+{
+    if (!player || !map || !map->data) return false;
 
+    const CP_Static* st = (const CP_Static*)map->data;
+    if (!st->vines || st->nVines < 2) return false;
+
+    IntRect pr = player_vine_rect(player);
+    int overlapCount = 0;
+
+    for (uint16_t i = 0; i < st->nVines; i++) {
+        IntRect vr = plat_rect(&st->vines[i]);
+
+        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height,
+                            vr.left, vr.top, vr.width, vr.height))
+        {
+            overlapCount++;
+            if (overlapCount >= 2)
+                return true; // inner rect is touching at least two vines
+        }
+    }
+
+    return false;
+}
 
 //handle vertical hit (top or bottom) against one platform
 static bool vertical_hit(Player* player,
