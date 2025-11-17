@@ -64,7 +64,7 @@ public class GameServer {
         vines.add(new Rect( 68, 121,  2,  79));
         vines.add(new Rect(108,  73,  2, 103));
         vines.add(new Rect(140,  73,  2,  71));
-        vines.add(new Rect(154,  81,  2,  95));
+        vines.add(new Rect(164,  81,  2,  95));
         vines.add(new Rect(188,  81,  2,  79));
         vines.add(new Rect(212,  49,  2, 127));
         vines.add(new Rect(236,  49,  2, 127));

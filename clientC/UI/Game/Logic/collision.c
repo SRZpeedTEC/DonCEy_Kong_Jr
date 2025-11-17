@@ -93,7 +93,7 @@ static IntRect player_vine_reach_rect(const Player* p, int direction) {
     int offsetY = (fullHeight - probeHeight) / 2;
 
     // how far jr stretches beyond his body
-    const int extraReach = 40; // PODEMOS CAMBIAR ESTO PARA VER EL AGARRE. <------------------------------
+    const int extraReach = 9; // PODEMOS CAMBIAR ESTO PARA VER EL AGARRE. <------------------------------
 
     if (direction > 0) {
         // reaching to the right

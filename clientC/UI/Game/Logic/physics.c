@@ -120,41 +120,49 @@ static bool handleVineHorizontal(Player* player,
     if (!player || !input || !map || !map->data)
         return false;
 
-    // no horizontal input: clear lock and do nothing
-    if (!input->left && !input->right) {
-        player->vineSideLock = false;
-        return false;
-    }
-
     const CP_Static* st = (const CP_Static*)map->data;
-
-    bool between = player_between_vines(player, map);
 
     // direction from input: -1 left, +1 right
     int dir = 0;
     if (input->left)  dir = -1;
     if (input->right) dir = +1;
-    if (dir == 0) return false;
 
-    // case: already between two vines, choose one side
-    if (between) {
+    // no horizontal input: clear lock so next press can trigger an action
+    if (dir == 0) {
+        player->vineSideLock = false;
+        return false;
+    }
+
+    // if this key press was already consumed for a vine action, ignore
+    if (player->vineSideLock) {
+        return false;
+    }
+
+    bool between = player_between_vines(player, map);
+
+    // === case 1: already between two vines ===
+        if (between) {
         int leftIndex  = player->vineLeftIndex;
         int rightIndex = player->vineRightIndex;
 
-        // pick right vine
+        // press right -> keep only right vine
         if (dir > 0 && rightIndex >= 0 && rightIndex < (int)st->nVines) {
             const CP_Rect* rv = &st->vines[rightIndex];
-            player->x = rv->x + rv->w - 1;
+            // snap to inner side of the right vine (coming from left)
+            player->x = rv->x - (player->w - 1);
             player->betweenVines = false;
-            player->vineSideLock = true;
+            player->onVine       = true;
+            player->vineSideLock = true; // action consumed
             return false;
         }
 
-        // pick left vine
+        // press left -> keep only left vine
         if (dir < 0 && leftIndex >= 0 && leftIndex < (int)st->nVines) {
             const CP_Rect* lv = &st->vines[leftIndex];
-            player->x = lv->x - (player->w - 1);
+            // snap to inner side of the left vine (coming from right)
+            player->x = lv->x + lv->w - 1;
             player->betweenVines = false;
+            player->onVine       = true;
             player->vineSideLock = true;
             return false;
         }
@@ -162,16 +170,17 @@ static bool handleVineHorizontal(Player* player,
         return false;
     }
 
-    // case: holding a single vine
+    // === case 2: holding a single vine ===
     int currentIndex = collision_find_current_vine_index(player, map);
     if (currentIndex < 0) {
+        // somehow we lost the vine: start forced fall immediately
         player->onVine          = false;
         player->betweenVines    = false;
         player->vineLeftIndex   = -1;
         player->vineRightIndex  = -1;
         player->vineForcedFall  = true;
         player->vineFallLockedX = player->x;
-        player->vineSideLock    = false;
+        player->vineSideLock    = true; // consume press
         return true;
     }
 
@@ -187,22 +196,21 @@ static bool handleVineHorizontal(Player* player,
     bool towards = (dir < 0 && onRightSide) || (dir > 0 && !onRightSide);
     bool away    = !towards;
 
-    // pressing towards the vine -> swap side on same vine
+    // --- step 1: pressing towards the vine -> swap side on same vine ---
     if (towards) {
-        if (!player->vineSideLock) {
-            if (onRightSide) {
-                // was on right, go to left
-                player->x = v->x - (player->w - 1);
-            } else {
-                // was on left, go to right
-                player->x = v->x + v->w - 1;
-            }
-            player->vineSideLock = true;
+        // this press will be used to flip side
+        if (onRightSide) {
+            // was on right, go to left
+            player->x = v->x - (player->w - 1);
+        } else {
+            // was on left, go to right
+            player->x = v->x + v->w - 1;
         }
+        player->vineSideLock = true; // consume this press
         return false;
     }
 
-    // pressing away from the vine
+    // --- step 2: pressing away from the vine ---
     if (away) {
         // try to reach a neighbor vine in this direction
         int neighborIndex = collision_find_neighbor_vine_reachable(player, map,
@@ -228,17 +236,11 @@ static bool handleVineHorizontal(Player* player,
 
             player->betweenVines = true;
             player->onVine       = true;
-            player->vineSideLock = true; // one stretch per key press
+            player->vineSideLock = true; // consume this press
             return false;
         }
 
-        // no neighbor vine: require second press to drop
-        if (player->vineSideLock) {
-            // same key still held, ignore
-            return false;
-        }
-
-        // second press away with no neighbor: drop straight down
+        // no neighbor vine: forced fall straight down (no horizontal drift)
         if (dir > 0) {
             player->x += 2;
         } else {
@@ -251,7 +253,7 @@ static bool handleVineHorizontal(Player* player,
         player->vineRightIndex  = -1;
         player->vineForcedFall  = true;
         player->vineFallLockedX = player->x;
-        player->vineSideLock    = true;
+        player->vineSideLock    = true; // consume this press
         return true;
     }
 
