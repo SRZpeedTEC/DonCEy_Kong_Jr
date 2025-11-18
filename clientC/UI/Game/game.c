@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "../Render/render.h"
+#include "../render/render.h"
 #include "logic/input.h"
 #include "logic/player.h"
 #include "logic/physics.h"
@@ -137,42 +137,47 @@ void game_draw_static(const CP_Static* staticMap) {
 
 // --- game logic hook ---
 void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out) {
-    // read inputs
-    InputState input = input_read();
+    // read keyboard/game input
+    InputState in = input_read();
 
-    // world view (bounds)
+    // simple debug respawn: press R to reset jr at spawn
+    if (IsKeyPressed(KEY_R)) {
+        game_respawn_player();   // esta función llama internamente a player_init(...)
+    }
+
+    // build world view (map data + bounds)
     MapView mv = map_view_build();
 
-    // if player is already dead, keep him frozen
-    if (gPlayer.isDead) {
-        out->x = gPlayer.x;
-        out->y = gPlayer.y;
-        out->vx = 0;
-        out->vy = 0;
-        out->flags = 0;  // de momento no mandamos nada especial
-        (void)staticMap;
-        return;
+    // run physics only if player is alive
+    if (!player_is_dead(&gPlayer)) {
+        physics_step(&gPlayer, &in, &mv, GetFrameTime());
+    } else {
+        // dead: freeze velocity so we do not drift
+        gPlayer.vx = 0;
+        gPlayer.vy = 0;
     }
 
-    // apply physics (movement, vines, platforms, etc.)
-    physics_step(&gPlayer, &input, &mv, GetFrameTime());
-
-    // death checks: water or crocodile
-    if (player_hits_water(&gPlayer, &mv) ||
-        crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
-    {
-        gPlayer.isDead = true;
-    }
-
-    // build proposal for the server
+    // fill proposal to send to server
     out->x = gPlayer.x;
     out->y = gPlayer.y;
     out->vx = gPlayer.vx;
     out->vy = gPlayer.vy;
-    out->flags = gPlayer.grounded ? 1 : 0;
 
-    (void)staticMap;
+    // flags:
+    // bit 0 -> grounded (on floor or platform)
+    // bit 1 -> just died this frame (one–shot event)
+    uint8_t flags = 0;
+    if (gPlayer.grounded) {
+        flags |= 0x01;
+    }
+    if (player_just_died(&gPlayer)) {
+        flags |= 0x02;
+    }
+    out->flags = flags;
+
+    (void)staticMap; // not used yet on the client logic side
 }
+
 
 void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int16_t yCorr, int16_t vyCorr) {
     (void)tick; (void)platId;

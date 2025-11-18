@@ -184,6 +184,13 @@ bool player_hits_water(const Player* player, const MapView* map) {
     return false;
 }
 
+bool player_touching_mario(const Player* player) {
+    if (!player) return false;
+
+    return rects_overlap_i(player->x, player->y, player->w, player->h,
+                           MARIO_X1, MARIO_Y1, MARIO_WIDTH, MARIO_HEIGHT);
+}
+
 
 //handle horizontal hit (left or right wall) against one platform
 static bool horizontal_hit(Player* player,
