@@ -1,4 +1,5 @@
 #include "collision.h"
+#include "constants.h"
 #include "../static_map.h"
 
 // aabb overlap test between two rectangles
@@ -167,6 +168,22 @@ static bool vertical_hit(Player* player,
     // if we reach here, overlap is lateral for vertical purposes
     return false;
 }
+
+
+// check if player overlaps any water rectangle
+bool player_hits_water(const Player* player, const MapView* map) {
+    (void)map; // no se usa más
+
+    if (!player) return false;
+
+    // Everything at y >= 226 is water
+    if (player->y + player->h >= WATER_LINE_Y) {
+        return true;
+    }
+
+    return false;
+}
+
 
 //handle horizontal hit (left or right wall) against one platform
 static bool horizontal_hit(Player* player,
