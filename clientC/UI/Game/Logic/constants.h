@@ -7,6 +7,8 @@
 #define JUMP_ASCENT_SPEED   -1   // very slow upward motion
 #define JUMP_ASCENT_FRAMES  18   // how many frames we keep ascending
 
+#define WATER_LINE_Y 226
+
 // climbing speed when holding a single vine
 #define VINE_CLIMB_SPEED_SLOW   1
 
@@ -19,3 +21,12 @@
 
 // Maximun number of fruits in the game
 #define MAX_FRUITS 16
+
+// mario kill rectangle 
+#define MARIO_X1 65
+#define MARIO_X2 77
+#define MARIO_Y1 49
+#define MARIO_Y2 64
+
+#define MARIO_WIDTH  (MARIO_X2 - MARIO_X1)
+#define MARIO_HEIGHT (MARIO_Y2 - MARIO_Y1)

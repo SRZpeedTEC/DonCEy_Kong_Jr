@@ -384,6 +384,13 @@ void physics_step(Player* player, const InputState* input, const MapView* map, f
     // final grounded state (floor or platform top)
     update_player_grounded(player, map, worldTop, worldHeight);
 
+     // hazard checks: water + mario
+    if (!player_is_dead(player)) {
+        if (player_hits_water(player, map) || player_touching_mario(player)) {
+            player_mark_dead(player);
+        }
+    }
+
     
     // vine state update
     // update between-vines state (only if not forced fall)

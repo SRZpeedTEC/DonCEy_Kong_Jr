@@ -24,9 +24,20 @@ typedef struct {
     // jump state for constant-velocity model
     bool jumping;         // true while ascending
     int  jumpFramesLeft;  // remaining ascent frames
+
+    // death state
+    bool isDead;     // true after Jr dies, until respawn
+    bool justDied;   // true solo el frame en que pasa de vivo -> muerto
 } Player;
 
 
 // Initialize player with defaults.
 void player_init(Player* p, int16_t x, int16_t y, int16_t w, int16_t h);
+
+// mark player as dead one time
+void player_mark_dead(Player* p);
+
+// helpers to query death state
+bool player_is_dead(const Player* p);
+bool player_just_died(Player* p);
 

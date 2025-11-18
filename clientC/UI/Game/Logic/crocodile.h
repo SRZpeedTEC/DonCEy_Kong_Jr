@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "player.h"
 
 #define CROC_VARIANT_RED 1
 #define CROC_VARIANT_BLUE 2
@@ -24,3 +25,5 @@ void crocodile_spawn(Crocodile* croc, uint8_t variant, int16_t x, int16_t y);
 
 //function for movement and behavior. FALTA IMPLEMENTAR 
 void crocodile_update(Crocodile* croc, float dt);
+
+bool crocodile_player_overlap(const Player* player, const Crocodile* crocs, int count);

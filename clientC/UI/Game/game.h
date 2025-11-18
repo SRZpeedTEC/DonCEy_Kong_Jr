@@ -17,3 +17,5 @@ void game_spawn_croc(uint8_t variant, int16_t x, int16_t y);
 void game_spawn_fruit(uint8_t variant, int16_t x, int16_t y);
 
 void game_remove_fruit_at(int16_t x, int16_t y);
+
+void game_respawn_player(void);

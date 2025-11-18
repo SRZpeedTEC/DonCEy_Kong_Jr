@@ -5,14 +5,14 @@
 #include <stdio.h>
 
 #include "../Render/render.h"
-#include "logic/input.h"
-#include "logic/player.h"
-#include "logic/physics.h"
-#include "logic/map.h"
-#include "logic/crocodile.h"
-#include "logic/constants.h"
-#include "logic/fruit.h"
-#include "logic/collision.h"
+#include "Logic/input.h"
+#include "Logic/player.h"
+#include "Logic/physics.h"
+#include "Logic/map.h"
+#include "Logic/crocodile.h"
+#include "Logic/constants.h"
+#include "Logic/fruit.h"
+#include "Logic/collision.h"
 
 // window/state
 static int VW, VH, SCALE;
@@ -126,30 +126,58 @@ void game_draw_static(const CP_Static* staticMap) {
         DrawText("FORCED FALL", 8, 48, 10, SKYBLUE);
         }
 
+        // death debug
+        if (gPlayer.isDead) {
+            DrawText("DEAD", 8, 72, 16, RED);
+        }
+
         DrawFPS(8, 8);
     EndDrawing();
 }
 
 // --- game logic hook ---
 void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out) {
-    // read intents
+    // read keyboard/game input
     InputState in = input_read();
 
-    // world view (bounds come from here)
+    // simple debug respawn: press R to reset jr at spawn
+    if (IsKeyPressed(KEY_R)) {
+        game_respawn_player();   // esta función llama internamente a player_init(...)
+    }
+
+    // build world view (map data + bounds)
     MapView mv = map_view_build();
 
-    // apply simple physics (gravity, jump, bounds)
-    physics_step(&gPlayer, &in, &mv, GetFrameTime());
+    // run physics only if player is alive
+    if (!player_is_dead(&gPlayer)) {
+        physics_step(&gPlayer, &in, &mv, GetFrameTime());
+    } else {
+        // dead: freeze velocity so we do not drift
+        gPlayer.vx = 0;
+        gPlayer.vy = 0;
+    }
 
-    // build proposal for the server
+    // fill proposal to send to server
     out->x = gPlayer.x;
     out->y = gPlayer.y;
     out->vx = gPlayer.vx;
     out->vy = gPlayer.vy;
-    out->flags = gPlayer.grounded ? 1 : 0;
 
-    (void)staticMap; // not needed here yet
+    // flags:
+    // bit 0 -> grounded (on floor or platform)
+    // bit 1 -> just died this frame (one–shot event)
+    uint8_t flags = 0;
+    if (gPlayer.grounded) {
+        flags |= 0x01;
+    }
+    if (player_just_died(&gPlayer)) {
+        flags |= 0x02;
+    }
+    out->flags = flags;
+
+    (void)staticMap; // not used yet on the client logic side
 }
+
 
 void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int16_t yCorr, int16_t vyCorr) {
     (void)tick; (void)platId;
@@ -199,4 +227,13 @@ void game_remove_fruit_at(int16_t x, int16_t y){
             break;
         }
     }
+}
+
+void game_respawn_player(void) {
+    // respawn on initial platform 
+    int startX = 16;
+    int startY = 192;
+
+    // maintain same rectangle size used originally
+    player_init(&gPlayer, startX, startY, gPlayer.w, gPlayer.h);
 }

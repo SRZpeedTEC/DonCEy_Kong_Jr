@@ -40,3 +40,8 @@ int collision_find_neighbor_vine_reachable(const Player* player, const MapView* 
 
 // updates Jr state when grabbed to two vines
 void collision_update_between_vines_state(Player* player, const MapView* map);
+
+bool player_hits_water(const Player* player, const MapView* map);
+
+// true if player overlaps mario kill rectangle
+bool player_touching_mario(const Player* player);
