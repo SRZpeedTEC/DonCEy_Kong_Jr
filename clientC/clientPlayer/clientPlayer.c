@@ -188,6 +188,13 @@ int main(int argCount, char** argValues){
         game_update_and_get_proposal(cp_get_static(), &proposedState);
         send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);
 
+                // debug: build entities TLV and show basic info (no network yet)
+        uint8_t entitiesBuf[512];
+        size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
+        if (entitiesLen > 0) {
+            fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
+            (void)entitiesLen;
+        }
         game_draw_static(cp_get_static());
     }
 
