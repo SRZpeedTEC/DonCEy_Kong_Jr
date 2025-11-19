@@ -36,3 +36,5 @@ void game_respawn_win(void);
 void crocodile_increase_speed(void);
 
 static void game_check_win_condition(void);
+
+void game_update_spectator(const CP_Static* staticMap);

@@ -204,6 +204,7 @@ int main(int argc, char** argv) {
         }
 
         // IMPORTANT: no input, no send_player_proposed here.
+        game_update_spectator(cp_get_static());
         game_draw_static(cp_get_static());
     }
 
