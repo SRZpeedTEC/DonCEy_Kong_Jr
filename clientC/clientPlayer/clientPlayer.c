@@ -192,7 +192,7 @@ int main(int argCount, char** argValues){
         uint8_t entitiesBuf[512];
         size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
         if (entitiesLen > 0) {
-            fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
+            //fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
             (void)entitiesLen;
         }
         

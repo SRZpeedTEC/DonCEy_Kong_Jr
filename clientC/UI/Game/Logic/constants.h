@@ -7,6 +7,10 @@
 #define JUMP_ASCENT_SPEED   -1   // very slow upward motion
 #define JUMP_ASCENT_FRAMES  18   // how many frames we keep ascending
 
+
+// crocodile horizontal speed in pixels per second (base speed)
+#define CROC_BASE_SPEED 1   // velocidad mínima (px/frame)
+
 #define WATER_LINE_Y 226
 
 // climbing speed when holding a single vine
