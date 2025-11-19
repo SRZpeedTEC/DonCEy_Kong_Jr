@@ -160,61 +160,55 @@ static void update_blue_croc(Crocodile* c,
 }
 
 // red crocodile: oscillate on vines (vertical) or on platforms (horizontal)
+// red crocodile: oscillates on platforms and on vines
 static void update_red_croc(Crocodile* c,
                             const CP_Static* st,
                             int worldTop,
                             int worldHeight)
 {
-    int speed     = croc_speed();
-    int platIndex = -1;
-    int vineIndex = -1;
+    (void)worldTop;
+    (void)worldHeight;
+
+    int  speed     = croc_speed();
+    int  platIndex = -1;
+    int  vineIndex = -1;
 
     bool onVine = croc_on_vine(c, st, &vineIndex);
     bool onPlat = croc_on_platform(c, st, &platIndex);
 
-    // if on a vine, oscillate up and down along that vine
+    // --- case 1: on a vine -> vertical oscillation ---
     if (onVine) {
         const CP_Rect* v = &st->vines[vineIndex];
 
-        // keep horizontal position centered on vine so we do not slip out
-        int vineCenterX = v->x + v->w / 2;
-        c->x = vineCenterX - c->w / 2;
-
-        // initialize vertical direction if needed
+        // if no vertical direction yet, start going down
         if (c->vy == 0) {
-            c->vy = speed; // start going down
+            c->vy = speed;
         }
 
-        // move along current direction
-        if (c->vy > 0) {
-            c->y += speed;
-        } else {
-            c->y -= speed;
+        // look ahead: where would the center be next frame?
+        int nextCy = c->y + c->vy + c->h / 2;
+        int vineTop    = v->y;
+        int vineBottom = v->y + v->h;
+
+        // if next step would leave the vine vertically, flip direction
+        if (nextCy < vineTop || nextCy >= vineBottom) {
+            c->vy = -c->vy;
+            // recompute with the flipped direction
+            nextCy = c->y + c->vy + c->h / 2;
         }
 
-        // compute allowed vertical range inside this vine
-        int topLimit    = v->y;
-        int bottomLimit = v->y + v->h - c->h;
-
-        // bounce at the ends of the vine
-        if (c->y < topLimit) {
-            c->y = topLimit;
-            c->vy = speed;      // switch to going down
-        } else if (c->y > bottomLimit) {
-            c->y = bottomLimit;
-            c->vy = -speed;     // switch to going up
-        }
-
+        // apply vertical movement, keep x fixed on the vine
+        c->y += c->vy;
         c->vx = 0;
         return;
     }
 
-    // if on a platform, oscillate left-right over that platform
+    // --- case 2: on a platform -> horizontal oscillation ---
     if (onPlat) {
         const CP_Rect* p = &st->plat[platIndex];
 
         if (c->vx == 0) {
-            c->vx = speed; // start moving right
+            c->vx = speed;   // start moving right
         }
 
         c->x += c->vx;
@@ -222,19 +216,20 @@ static void update_red_croc(Crocodile* c,
         int leftLimit  = p->x;
         int rightLimit = p->x + p->w - c->w;
 
+        // bounce at platform edges
         if (c->x < leftLimit) {
             c->x  = leftLimit;
-            c->vx = speed;      // go right
+            c->vx = speed;   // go right
         } else if (c->x > rightLimit) {
             c->x  = rightLimit;
-            c->vx = -speed;     // go left
+            c->vx = -speed;  // go left
         }
 
         c->vy = 0;
         return;
     }
 
-    // in the air: small straight fall
+    // --- case 3: in the air -> simple fall (for now) ---
     c->vx = 0;
     c->vy = speed;
     c->y += c->vy;
