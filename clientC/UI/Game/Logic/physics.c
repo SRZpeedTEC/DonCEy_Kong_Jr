@@ -3,6 +3,7 @@
 #include "constants.h"
 #include "collision.h"
 #include "static_map.h"
+#include "crocodile.h"
 
 // simple toggle to slow vine climbing 
 static int g_vineClimbToggle = 0;

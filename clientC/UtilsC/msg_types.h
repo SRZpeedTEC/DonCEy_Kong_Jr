@@ -16,8 +16,14 @@ enum {
   CP_TYPE_SPAWN_CROC   = 0x30, // s -> c (spawn crocodile at coords)
   CP_TYPE_SPAWN_FRUIT  = 0x40, // s -> c (spawn fruit at coords)
   CP_TYPE_REMOVE_FRUIT = 0x41,  // s -> c (remove fruit at coords)
-  CP_TYPE_SPECTATOR_STATE = 0x50 // s -> spectator (player state update)
+  CP_TYPE_SPECTATOR_STATE = 0x50, // s -> spectator (player state update)
 
+  CP_TYPE_NOTIFY_DEATH_COLLISION = 0x60, // s -> c (notify death by collision)
+  CP_TYPE_NOTIFY_VICTORY       = 0x61,  // s -> c (notify victory)
+
+  CP_TYPE_RESPAWN_DEATH_COLLISION = 0x70, // c -> s (request respawn after death by collision)
+  CP_TYPE_GAME_OVER = 0x71,
+  CP_TYPE_RESPAWN_WIN       = 0x72  // c -> s (request respawn after victory)
 };
 
 // TLVs (dentro de STATE_BUNDLE)

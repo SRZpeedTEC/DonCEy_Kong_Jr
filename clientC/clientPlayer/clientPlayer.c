@@ -89,6 +89,22 @@ static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
     }
 }
 
+// --- handlers de órdenes del server ---
+static void on_respawn_death(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    game_respawn_death();  
+}
+
+static void on_respawn_win(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    game_respawn_win();    
+}
+
+static void on_game_over(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    game_over_event();
+}
+
 
 // ---- envío de propuesta (cliente -> server) ----
 static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
@@ -101,6 +117,16 @@ static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, 
     outBuf[10]=velY>>8; outBuf[11]=velY;
     outBuf[12]=flags;
     return cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, sizeof outBuf) ? 1 : 0;
+}
+
+static int send_notify_death_collision(int socketFd, uint32_t clientId)
+{
+    return cp_send_frame(socketFd, CP_TYPE_NOTIFY_DEATH_COLLISION, clientId, 0, NULL, 0) ? 1 : 0;
+}
+
+static int send_notify_victory(int socketFd, uint32_t clientId)
+{
+    return cp_send_frame(socketFd, CP_TYPE_NOTIFY_VICTORY, clientId, 0, NULL, 0) ? 1 : 0;
 }
 
 
@@ -125,6 +151,9 @@ int main(int argCount, char** argValues){
     disp_register(CP_TYPE_SPAWN_CROC, on_spawn_croc);
     disp_register(CP_TYPE_SPAWN_FRUIT, on_spawn_fruit);
     disp_register(CP_TYPE_REMOVE_FRUIT, on_remove_fruit);
+    disp_register(CP_TYPE_RESPAWN_DEATH_COLLISION, on_respawn_death);
+    disp_register(CP_TYPE_RESPAWN_WIN, on_respawn_win);
+    disp_register(CP_TYPE_GAME_OVER, on_game_over);
 
 
 
@@ -186,6 +215,14 @@ int main(int argCount, char** argValues){
 
         ProposedState proposedState;
         game_update_and_get_proposal(cp_get_static(), &proposedState);
+        
+        if (game_consume_death_event()) {
+            send_notify_death_collision(socketFd, clientId);
+        }
+        if (game_consume_win_event()) {
+            send_notify_victory(socketFd, clientId);
+        }
+
         send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);
 
         // debug: build entities TLV and show basic info (no network yet)

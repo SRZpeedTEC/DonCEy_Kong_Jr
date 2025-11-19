@@ -32,6 +32,12 @@ void game_respawn_death(void);
 
 void game_respawn_win(void);
 
+bool game_consume_death_event(void);
+
+bool game_consume_win_event(void);
+
+void game_over_event(void);
+
 // Increase global crocodile speed.
 void crocodile_increase_speed(void);
 

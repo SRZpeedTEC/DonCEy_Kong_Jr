@@ -37,6 +37,7 @@ static Fruit gFruits[MAX_FRUITS];
 // round win state (handled only in game.c)
 static bool gRoundWon = false;
 static bool gRoundJustWon = false;
+static bool gGameOver = false;
 
 // check if player rect contains the win point (109, 48)
 static void game_check_win_condition(void) {
@@ -180,6 +181,16 @@ void game_draw_static(const CP_Static* staticMap) {
 // --- game logic hook ---
 void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out) {
     // read keyboard/game input
+
+    if (gGameOver) {
+        out->x = gPlayer.x; out->y = gPlayer.y;
+        out->vx = 0;        out->vy = 0;
+        out->flags = 0;     // sin grounded/just_died
+        (void)staticMap;
+        return;
+    }
+
+
     InputState in = input_read();
 
     
@@ -190,23 +201,11 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     //update win state based on player position
     game_check_win_condition();
 
-    // debug: test respawn functions from C side
-    if (IsKeyPressed(KEY_R)) {
-        // simulate respawn after death
-        game_respawn_death();
-    }
-    if (IsKeyPressed(KEY_T)) {
-        // simulate respawn after win
-        game_respawn_win();
-    }
-
 
     if (crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
     {
         gPlayer.isDead = true;
     }
-
-
 
 
     // run physics only if player is alive
@@ -216,13 +215,15 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
         for (int i = 0; i < MAX_CROCS; ++i) {
             crocodile_update(&gCrocs[i], &mv);
         }
-
+        
 
     } else {
         // dead: freeze velocity so we do not drift
         gPlayer.vx = 0;
         gPlayer.vy = 0;
+        
     }
+
 
     // fill proposal to send to server
     out->x = gPlayer.x;
@@ -234,12 +235,8 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // bit 0 -> grounded (on floor or platform)
     // bit 1 -> just died this frame (one–shot event)
     uint8_t flags = 0;
-    if (gPlayer.grounded) {
-        flags |= 0x01;
-    }
-    if (player_just_died(&gPlayer)) {
-        flags |= 0x02;
-    }
+    if (gPlayer.grounded) flags |= 0x01;
+    if (gPlayer.isDead)         flags |= 0x02;
     out->flags = flags;
 
     (void)staticMap; 
@@ -385,6 +382,25 @@ void game_remove_fruit_at(int16_t x, int16_t y){
     }
 }
 
+bool game_consume_death_event(void) {
+    if (!gPlayer.isDead) return false;
+    gPlayer.isDead = false;
+    return true;
+}
+
+bool game_consume_win_event(void) {
+    if (!gRoundJustWon) return false;
+    gRoundJustWon = false;
+    crocodile_increase_speed();
+    return true;
+}
+
+void game_over_event(void) {
+    // PONER PANTALLA DE GAME OVER ACA
+    gGameOver = true;        
+    for (int i = 0; i < MAX_CROCS; ++i) gCrocs[i].active = gCrocs[i].active; 
+}
+
 // reset all dynamic entities for a fresh round
 static void game_reset_entities(void) {
     for (int i = 0; i < MAX_CROCS; ++i) {
@@ -403,6 +419,7 @@ void game_respawn_death(void) {
 
     gRoundWon = false;
     gRoundJustWon = false;
+    gPlayer.isDead = false;
 
     // reset player state and position
     player_init(&gPlayer, 16, 192, 16, 16);
