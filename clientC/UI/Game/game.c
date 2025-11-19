@@ -153,6 +153,12 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // build world view (map data + bounds)
     MapView mv = map_view_build();
 
+    if (crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
+    {
+        gPlayer.isDead = true;
+    }
+
+
     // run physics only if player is alive
     if (!player_is_dead(&gPlayer)) {
         physics_step(&gPlayer, &in, &mv, GetFrameTime());
@@ -183,64 +189,6 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     (void)staticMap; // not used yet on the client logic side
 }
 
-// returns the total size written to dst, or 0 if dst is NULL / too small.
-size_t game_build_entities_tlv(uint8_t* dst, size_t dstCapacity) {
-    if (!dst || dstCapacity == 0) return 0;
-
-    // temporary buffer to collect all entities this frame
-    EntitySnapshot snapshots[1 + MAX_CROCS + MAX_FRUITS];
-    uint8_t count = 0;
-
-    // --- player snapshot ---
-    {
-        uint8_t spriteId = 0;  // placeholder, later replaced by real animation logic
-        snapshots[count].kind     = ENTITY_KIND_PLAYER;
-        snapshots[count].spriteId = spriteId;
-        snapshots[count].x        = gPlayer.x;
-        snapshots[count].y        = gPlayer.y;
-        count++;
-    }
-
-    // --- crocodile snapshots ---
-    for (int i = 0; i < MAX_CROCS; ++i) {
-        if (!gCrocs[i].active) continue;
-        if (count >= sizeof(snapshots) / sizeof(snapshots[0])) break;
-
-        uint8_t spriteId = 0;
-        // simple variant → sprite mapping
-        if      (gCrocs[i].variant == CROC_VARIANT_BLUE) spriteId = 1;
-        else if (gCrocs[i].variant == CROC_VARIANT_RED)  spriteId = 2;
-
-        snapshots[count].kind     = ENTITY_KIND_CROC;
-        snapshots[count].spriteId = spriteId;
-        snapshots[count].x        = gCrocs[i].x;
-        snapshots[count].y        = gCrocs[i].y;
-        count++;
-    }
-
-    // --- fruit snapshots ---
-    for (int i = 0; i < MAX_FRUITS; ++i) {
-        if (!gFruits[i].active) continue;
-        if (count >= sizeof(snapshots) / sizeof(snapshots[0])) break;
-
-        uint8_t spriteId = 0;
-        if      (gFruits[i].variant == FRUIT_VARIANT_APPLE)  spriteId = 1;
-        else if (gFruits[i].variant == FRUIT_VARIANT_ORANGE) spriteId = 2;
-        else if (gFruits[i].variant == FRUIT_VARIANT_BANANA) spriteId = 3;
-
-        snapshots[count].kind     = ENTITY_KIND_FRUIT;
-        snapshots[count].spriteId = spriteId;
-        snapshots[count].x        = gFruits[i].x;
-        snapshots[count].y        = gFruits[i].y;
-        count++;
-    }
-
-    // serialize all collected snapshots into a TLV buffer
-    return entities_tlv_build(dst, dstCapacity, snapshots, count);
-}
-
-
-// build a TLV_ENTITIES_CORR containing: player, all active crocs and all active fruits.
 // returns the total size written to dst, or 0 if dst is NULL / too small.
 size_t game_build_entities_tlv(uint8_t* dst, size_t dstCapacity) {
     if (!dst || dstCapacity == 0) return 0;
