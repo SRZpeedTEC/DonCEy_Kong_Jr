@@ -7,14 +7,14 @@
 
 
 #include "../Render/render.h"
-#include "logic/input.h"
-#include "logic/player.h"
-#include "logic/physics.h"
-#include "logic/map.h"
-#include "logic/crocodile.h"
-#include "logic/constants.h"
-#include "logic/fruit.h"
-#include "logic/collision.h"
+#include "Logic/input.h"
+#include "Logic/player.h"
+#include "Logic/physics.h"
+#include "Logic/map.h"
+#include "Logic/crocodile.h"
+#include "Logic/constants.h"
+#include "Logic/fruit.h"
+#include "Logic/collision.h"
 
 #include "../../UtilsC/entities_tlv.h" 
 
@@ -152,6 +152,13 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // build world view (map data + bounds)
     MapView mv = map_view_build();
 
+    // death checks: water or crocodile
+    if (player_hits_water(&gPlayer, &mv) ||
+        crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
+    {
+        gPlayer.isDead = true;
+    }
+
     // run physics only if player is alive
     if (!player_is_dead(&gPlayer)) {
         physics_step(&gPlayer, &in, &mv, GetFrameTime());
@@ -160,6 +167,7 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
         gPlayer.vx = 0;
         gPlayer.vy = 0;
     }
+    
 
     // fill proposal to send to server
     out->x = gPlayer.x;
