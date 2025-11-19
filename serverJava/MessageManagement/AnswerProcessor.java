@@ -1,14 +1,15 @@
 package MessageManagement;
+
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 
-import Classes.Player.player;
 import serverJava.GameServer;
 import Utils.MsgType;
 import MessageManagement.TLVParser;
 
 public class AnswerProcessor {
+    // Simple handler interface (kept for possible future use)
     public interface Handler {
         void handle(byte[] payload, Session ctx) throws IOException;
     }
@@ -21,14 +22,13 @@ public class AnswerProcessor {
         this.server = server;
         this.messenger = new Messenger(server);
 
-        // registra handlers por tipo de frame
-        //handlers.put(MsgType.PLAYER_PROPOSED, this::onPlayerProposed);
-        //handlers.put(MsgType.PING,            this::onPing);
-        
+        // you can register extra handlers here if you want
+        // handlers.put(MsgType.PLAYER_PROPOSED, this::onPlayerProposed);
+        // handlers.put(MsgType.PING,            this::onPing);
     }
 
     public void processFrame(DataInputStream in, Session sess) throws IOException {
-        // --- header (16 bytes, big-endian) ---
+        // read common frame header (16 bytes, big-endian)
         byte version = in.readByte();
         byte type    = in.readByte();
         int  _res    = in.readUnsignedShort();
@@ -42,7 +42,7 @@ public class AnswerProcessor {
         }
 
         if (type == MsgType.PLAYER_PROPOSED) {
-            // payload: tick u32, x i16, y i16, vx i16, vy i16, flags u8
+            // payload layout: tick u32, x i16, y i16, vx i16, vy i16, flags u8
             int   tick  = in.readInt();
             short x     = in.readShort();
             short y     = in.readShort();
@@ -50,13 +50,15 @@ public class AnswerProcessor {
             short vy    = in.readShort();
             byte  flags = in.readByte();
 
-            
+            // mirror state into server.p1 if that object exists
             if (server.p1 != null){
                 server.p1.x = x; 
                 server.p1.y = y; 
                 server.p1.vx = vx; 
                 server.p1.vy = vy;
             }
+
+            // notify spectators about the updated player state + flags
             int playerClientId = sess.clientId();
             server.broadcastPlayerStateToSpectators(playerClientId, x, y, vx, vy, flags);
             

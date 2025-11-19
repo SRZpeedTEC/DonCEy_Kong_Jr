@@ -16,6 +16,8 @@ size_t game_build_entities_tlv(uint8_t* dst, size_t dstCapacity);
 
 
 
+// build a TLV_ENTITIES_CORR into dst and return its size; 0 on error
+size_t game_build_entities_tlv(uint8_t* dst, size_t dstCapacity);
 void game_apply_remote_state(int16_t x, int16_t y, int16_t vx, int16_t vy, uint8_t flags); //Spectator
 
 void game_spawn_croc(uint8_t variant, int16_t x, int16_t y);
