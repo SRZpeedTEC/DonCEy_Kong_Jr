@@ -18,6 +18,14 @@ public class GameServer {
     private final ConcurrentHashMap<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
     private final AtomicInteger idGen = new AtomicInteger(1);
 
+    // Map playerId -> player handler
+    private final Map<Integer, ClientHandler> players = new ConcurrentHashMap<>();
+
+    // Map playerId -> list of spectator observers
+    private final Map<Integer, List<ClientHandler>> spectatorsByPlayer = new ConcurrentHashMap<>();
+
+
+
     // ---- Level & game state ----
 
     // These were being used directly as server.platforms, server.vines, etc.
@@ -162,6 +170,23 @@ public class GameServer {
     }
 
 
+    private Integer choosePlayerForSpectator() {
+        Integer best = null;
+        int bestCount = Integer.MAX_VALUE;
+
+        for (Map.Entry<Integer, ClientHandler> e : players.entrySet()) {
+            int pid = e.getKey();
+            List<ClientHandler> specs = spectatorsByPlayer.get(pid);
+            int count = (specs == null) ? 0 : specs.size();
+            if (count < 2 && count < bestCount) {
+                bestCount = count;
+                best = pid;
+            }
+        }
+        return best;
+    }
+
+
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);
         System.out.println("Server listening on port " + port);
@@ -181,18 +206,90 @@ public class GameServer {
             socket.setTcpNoDelay(true);
 
             int clientId = idGen.getAndIncrement();
-            ClientHandler handler = new ClientHandler(clientId, socket, this);
-            clients.put(clientId, handler);
-            handler.start();
 
+            ClientRole role;
+            Integer observedPlayerId = null;
+            
+            synchronized (this) {
+                if (players.size() < 2) {
+                    // Become a PLAYER
+                    role = ClientRole.PLAYER;
+                    observedPlayerId = null;
+                    System.out.println("Client " + clientId + " registered as PLAYER");
+                } else {
+                    // Become a SPECTATOR: attach to player with fewer than 2 spectators
+                    Integer targetPlayerId = choosePlayerForSpectator();
+                    if (targetPlayerId == null) {
+                        System.out.println("No player slot available for spectator " + clientId);
+                        socket.close();
+                        continue; // reject connection or handle differently
+                    }
+                    role = ClientRole.SPECTATOR;
+                    observedPlayerId = targetPlayerId;
+                    System.out.println("Client " + clientId + " registered as SPECTATOR of player " + targetPlayerId);
+                }
+            }
+
+            ClientHandler handler = new ClientHandler(clientId, socket, this, role, observedPlayerId);
+            clients.put(clientId, handler);
+
+            // If it’s a player, register in players map and ensure list for spectators exists
+            if (role == ClientRole.PLAYER) {
+                players.put(clientId, handler);
+                spectatorsByPlayer.putIfAbsent(clientId, Collections.synchronizedList(new ArrayList<>()));
+            }else {
+            // It’s a spectator -> register as observer for that player
+            spectatorsByPlayer
+                .computeIfAbsent(observedPlayerId, k -> Collections.synchronizedList(new ArrayList<>()))
+                .add(handler);
+        }
+
+            handler.start();
             System.out.println("Client connected, id=" + clientId + " from " + socket.getRemoteSocketAddress());
         }
     }
 
     // Called by ClientHandler when a client disconnects
     public void removeClient(int id) {
-        clients.remove(id);
+        ClientHandler h = clients.remove(id);
+        if (h == null) return;
+
+        ClientRole role = h.getRole();
+
+        if (role == ClientRole.PLAYER) {
+            // Remove player and all its spectators
+            players.remove(id);
+            List<ClientHandler> specs = spectatorsByPlayer.remove(id);
+            if (specs != null) {
+                System.out.println("Player " + id + " disconnected; removed " + specs.size() + " spectators");
+            } else {
+                System.out.println("Player " + id + " disconnected; no spectators");
+            }
+
+        } else { // SPECTATOR
+            Integer observedPid = h.getObservedPlayerId();
+            if (observedPid != null) {
+                List<ClientHandler> specs = spectatorsByPlayer.get(observedPid);
+                if (specs != null) specs.remove(h);
+                System.out.println("Spectator " + id + " disconnected from player " + observedPid);
+            } else {
+                System.out.println("Spectator " + id + " disconnected (no player assigned)");
+            }
+        }
+
         System.out.println("Client " + id + " disconnected.");
+    }
+
+    public void broadcastPlayerStateToSpectators(int playerClientId,
+                                                short x, short y,
+                                                short vx, short vy,
+                                                byte flags) {
+        List<ClientHandler> specs = spectatorsByPlayer.get(playerClientId);
+        if (specs == null || specs.isEmpty()) return;
+
+        for (ClientHandler spectator : specs) {
+            spectator.sendSpectatorState(x, y, vx, vy, flags);
+        }
     }
 
     public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant, int pos){

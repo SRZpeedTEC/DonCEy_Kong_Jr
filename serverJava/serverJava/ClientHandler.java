@@ -8,8 +8,11 @@ import MessageManagement.Proto;
 import MessageManagement.Session;
 import MessageManagement.AnswerProcessor;
 import Utils.MsgType;
+import serverJava.ClientRole;
 import Utils.Rect;
 import Classes.Player.player;
+
+
 
 public class ClientHandler extends Thread {
 
@@ -22,11 +25,16 @@ public class ClientHandler extends Thread {
     private final AnswerProcessor answerProcessor;
     private final Messenger messenger;
 
-    public ClientHandler(int clientId, Socket socket, GameServer server) throws IOException {
+    private ClientRole role;
+    private Integer observedPlayerId;
+
+    public ClientHandler(int clientId, Socket socket, GameServer server, ClientRole role, Integer observedPlayerId) throws IOException {
         super("Client-" + clientId);
         this.clientId = clientId;
         this.socket   = socket;
-        this.server   = server;   // <<< store reference to GameServer
+        this.server   = server;   // store reference to GameServer
+        this.role     = role;
+        this.observedPlayerId = observedPlayerId;
 
         this.in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
@@ -35,14 +43,31 @@ public class ClientHandler extends Thread {
         this.answerProcessor = new AnswerProcessor(server);
         this.messenger       = new Messenger(server);
 
-        // Send ACK
+        // --- ACK al conectar ---
         Proto.writeHeader(out, MsgType.CLIENT_ACK, clientId, 0, 0);
         out.flush();
 
-        // Send initial static level (using your new logic)
+        // --- Mapa estático inicial ---
         messenger.sendInitStaticLegacy(clientId, out);
-        // If needed, use server.getPlatforms(), server.getVines(), etc. inside Messenger
+    }
+    
+    public ClientRole getRole() {
+        return role;
+    }
 
+    public Integer getObservedPlayerId() {
+        return observedPlayerId;
+    }
+
+    public void sendSpectatorState(short x, short y, short vx, short vy, byte flags) {
+        try {
+            messenger.sendSpectatorState(session, x, y, vx, vy, flags);
+            session.log("Sent SPECTATOR_STATE to client " + clientId +
+                        " (x=" + x + ", y=" + y + ", vx=" + vx + ", vy=" + vy +
+                        ", flags=" + flags + ")");
+        } catch (IOException e) {
+            session.log("Error sending SPECTATOR_STATE: " + e.getMessage());
+        }
     }
 
     public String getRemote() {

@@ -8,5 +8,6 @@ public final class MsgType {
         public static final byte CROC_SPAWN      = 0x30;   // server->client (spawn crocodile)
         public static final byte FRUIT_SPAWN     = 0x40;   // server->client (spawn fruit)
         public static final byte REMOVE_FRUIT    = 0x41;  // server->client (remove fruit)
+        public static final byte SPECTATOR_STATE = 0x50;   // server->spectator (player state update)
         private MsgType(){}
     }

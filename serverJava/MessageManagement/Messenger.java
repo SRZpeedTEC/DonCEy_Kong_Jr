@@ -4,6 +4,7 @@ import java.io.*;
 
 import javax.xml.crypto.Data;
 
+import Classes.Player.player;
 import Utils.Rect;
 import Utils.MsgType;
 import Messages.OutboundMessage;
@@ -74,5 +75,32 @@ public class Messenger {
         session.out().flush();
     }
 
+    public void sendSpectatorState(Session s,
+                                short x, short y,
+                                short vx, short vy,
+                                byte flags) throws IOException {
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(baos);
+
+        // Payload layout: x, y, vx, vy as int16, flags as byte => 9 bytes
+        out.writeShort(x);
+        out.writeShort(y);
+        out.writeShort(vx);
+        out.writeShort(vy);
+        out.writeByte(flags);
+
+        byte[] payload = baos.toByteArray();
+
+        // Header: dest = this session's clientId; gameId = 0 (or playerClientId if you want)
+        Proto.writeHeader(s.out(),
+                        MsgType.SPECTATOR_STATE,
+                        s.clientId(),
+                        0,
+                        payload.length);
+
+        s.out().write(payload);
+        s.out().flush();
+    }
 
 }

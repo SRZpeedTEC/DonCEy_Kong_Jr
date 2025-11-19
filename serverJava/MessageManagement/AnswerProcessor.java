@@ -2,6 +2,8 @@ package MessageManagement;
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
+
+import Classes.Player.player;
 import serverJava.GameServer;
 import Utils.MsgType;
 
@@ -42,19 +44,13 @@ public class AnswerProcessor {
             short vy    = in.readShort();
             byte  flags = in.readByte();
 
-            // 1) imprime lo recibido (prueba de fuego)
-            //System.out.printf("PLAYER_PROP from C%d: tick=%d pos=(%d,%d) v=(%d,%d) flags=0x%02X%n",
-                    //fromId, tick, (int)x, (int)y, (int)vx, (int)vy, flags & 0xFF);
-
-            // 2a) si usas objeto Player:
+            
             if (server.p1 != null){
                 server.p1.x = x; server.p1.y = y; server.p1.vx = vx; server.p1.vy = vy;
             }
-
-            // 2b) si prefieres reflejarlo en el Rect del mapa:
-            // server.player = new Rect(x, y, server.player.w(), server.player.h());
-
-            // (devolución STATE_BUNDLE la dejamos para después)
+            int playerClientId = sess.clientId();
+            server.broadcastPlayerStateToSpectators(playerClientId, x, y, vx, vy, flags);
+    
         } else {
             // descarta payload de otros tipos por ahora
             if (len > 0) in.skipNBytes(len);
