@@ -15,8 +15,9 @@
 #include "Logic/constants.h"
 #include "Logic/fruit.h"
 #include "Logic/collision.h"
-
 #include "../../UtilsC/entities_tlv.h" 
+
+
 
 // window/state
 static int VW, VH, SCALE;
@@ -152,12 +153,11 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // build world view (map data + bounds)
     MapView mv = map_view_build();
 
-    // death checks: water or crocodile
-    if (player_hits_water(&gPlayer, &mv) ||
-        crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
+    if (crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
     {
         gPlayer.isDead = true;
     }
+
 
     // run physics only if player is alive
     if (!player_is_dead(&gPlayer)) {
@@ -167,7 +167,6 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
         gPlayer.vx = 0;
         gPlayer.vy = 0;
     }
-    
 
     // fill proposal to send to server
     out->x = gPlayer.x;
@@ -190,8 +189,6 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     (void)staticMap; // not used yet on the client logic side
 }
 
-
-// build a TLV_ENTITIES_CORR containing: player, all active crocs and all active fruits.
 // returns the total size written to dst, or 0 if dst is NULL / too small.
 size_t game_build_entities_tlv(uint8_t* dst, size_t dstCapacity) {
     if (!dst || dstCapacity == 0) return 0;
