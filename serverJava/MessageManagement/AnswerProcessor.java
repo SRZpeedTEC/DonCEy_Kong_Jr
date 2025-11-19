@@ -36,7 +36,11 @@ public class AnswerProcessor {
         int  gameId  = in.readInt();
         int  len     = in.readInt();
 
-        // handle player proposed frame from C (C -> Java)
+        if (len < 13) {
+            if (len > 0) in.skipNBytes(len);
+            return;
+        }
+
         if (type == MsgType.PLAYER_PROPOSED) {
             // payload layout: tick u32, x i16, y i16, vx i16, vy i16, flags u8
             int   tick  = in.readInt();
@@ -48,53 +52,45 @@ public class AnswerProcessor {
 
             // mirror state into server.p1 if that object exists
             if (server.p1 != null){
-                server.p1.x  = x;
-                server.p1.y  = y;
-                server.p1.vx = vx;
+                server.p1.x = x; 
+                server.p1.y = y; 
+                server.p1.vx = vx; 
                 server.p1.vy = vy;
             }
 
             // notify spectators about the updated player state + flags
             int playerClientId = sess.clientId();
             server.broadcastPlayerStateToSpectators(playerClientId, x, y, vx, vy, flags);
-
+            
             return;
         }
-
-        // handle state bundle sent from server to clients (used for TLVs)
         if (type == MsgType.STATE_BUNDLE) {
-            if (len <= 0) {
-                return;
-            }
+            if (len <= 0) return;
 
-            // read the full TLV buffer
             byte[] buf = new byte[len];
             in.readFully(buf);
 
-            // parse TLVs inside the bundle
             TLVParser tlv = new TLVParser(buf);
+
             while (tlv.remaining() > 0) {
                 TLVParser.TLV t = tlv.next();
                 if (t == null) break;
 
-                // debug-print the ENTITIES_CORR TLV that comes from C
                 if (t.type == MsgType.TLV_ENTITIES_CORR) {
                     System.out.println("[ENTITIES_CORR] len=" + t.length);
 
+                    // Print raw bytes in hex to verify content
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < t.length; i++) {
                         sb.append(String.format("%02X ", t.value[i]));
                     }
                     System.out.println(sb.toString());
 
-                    // later you can decode t.value into entity objects
-                    // and broadcast them to spectators
+                    // Later this TLV will be parsed and broadcast to spectators
                 }
             }
             return;
         }
-
-        // for other message types, skip payload for now
         if (len > 0) {
             in.skipNBytes(len);
         }
