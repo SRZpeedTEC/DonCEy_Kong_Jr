@@ -9,7 +9,7 @@
 
 
 // crocodile horizontal speed in pixels per second (base speed)
-#define CROC_BASE_SPEED 1   // velocidad mínima (px/frame)
+#define CROC_BASE_SPEED 1   
 
 #define WATER_LINE_Y 226
 

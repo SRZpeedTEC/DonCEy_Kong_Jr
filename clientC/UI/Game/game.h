@@ -27,3 +27,12 @@ void game_spawn_fruit(uint8_t variant, int16_t x, int16_t y);
 void game_remove_fruit_at(int16_t x, int16_t y);
 
 void game_respawn_player(void);
+
+void game_respawn_death(void);
+
+void game_respawn_win(void);
+
+// Increase global crocodile speed.
+void crocodile_increase_speed(void);
+
+static void game_check_win_condition(void);

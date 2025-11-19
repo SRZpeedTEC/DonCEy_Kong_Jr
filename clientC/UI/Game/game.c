@@ -34,6 +34,32 @@ static Crocodile gCrocs[MAX_CROCS];
 // fruits state
 static Fruit gFruits[MAX_FRUITS];
 
+// round win state (handled only in game.c)
+static bool gRoundWon = false;
+static bool gRoundJustWon = false;
+
+// check if player rect contains the win point (109, 48)
+static void game_check_win_condition(void) {
+    if (gRoundWon) return;
+
+    const int winX = 109;
+    const int winY = 48;
+
+    int px = gPlayer.x;
+    int py = gPlayer.y;
+    int pw = gPlayer.w;
+    int ph = gPlayer.h;
+
+    bool containsPoint =
+        (winX >= px) && (winX < px + pw) &&
+        (winY >= py) && (winY < py + ph);
+
+    if (containsPoint) {
+        gRoundWon = true;
+        gRoundJustWon = true;
+    }
+}
+
 // --- init / shutdown ---
 void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     VW = (int)vw; VH = (int)vh; SCALE = (int)scale;
@@ -136,6 +162,17 @@ void game_draw_static(const CP_Static* staticMap) {
             DrawText("DEAD", 8, 72, 16, RED);
         }
 
+        // show win debug centered at top
+        if (gRoundWon) {
+            const char* winMsg = "PLAYER WON";
+            int fontSize = 20;
+            int textWidth = MeasureText(winMsg, fontSize);
+            int screenWidth = VW * SCALE;
+            int posX = (screenWidth - textWidth) / 2;
+            int posY = 4;
+            DrawText(winMsg, posX, posY, fontSize, YELLOW);
+        }
+
         DrawFPS(8, 8);
     EndDrawing();
 }
@@ -145,15 +182,23 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // read keyboard/game input
     InputState in = input_read();
 
-    // simple debug respawn: press R to reset jr at spawn
-    if (IsKeyPressed(KEY_R)) {
-        game_respawn_player();   // esta función llama internamente a player_init(...)
-    }
+    
 
     // build world view (map data + bounds)
     MapView mv = map_view_build();
 
+    //update win state based on player position
+    game_check_win_condition();
 
+    // debug: test respawn functions from C side
+    if (IsKeyPressed(KEY_R)) {
+        // simulate respawn after death
+        game_respawn_death();
+    }
+    if (IsKeyPressed(KEY_T)) {
+        // simulate respawn after win
+        game_respawn_win();
+    }
 
 
     if (crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
@@ -197,7 +242,7 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     }
     out->flags = flags;
 
-    (void)staticMap; // not used yet on the client logic side
+    (void)staticMap; 
 }
 
 // returns the total size written to dst, or 0 if dst is NULL / too small.
@@ -273,19 +318,17 @@ void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int1
 }
 
 void game_apply_remote_state(int16_t x, int16_t y, int16_t vx, int16_t vy, uint8_t flags) {
-    // Sobrescribe la posición y velocidad del jugador con lo que manda el server
+    
     gPlayer.x  = x;
     gPlayer.y  = y;
     gPlayer.vx = vx;
     gPlayer.vy = vy;
 
-    // Flags vienen con el mismo significado que en game_update_and_get_proposal:
-    // bit 0 -> grounded
-    // bit 1 -> just died
+    
     gPlayer.grounded = (flags & 0x01) != 0;
 
     if (flags & 0x02) {
-        // Si quieres reflejar la muerte en pantalla:
+        
         gPlayer.isDead = true;
     }
 }
@@ -326,14 +369,43 @@ void game_remove_fruit_at(int16_t x, int16_t y){
     }
 }
 
-void game_respawn_player(void) {
-    // respawn on initial platform 
-    int startX = 16;
-    int startY = 192;
-
-    // maintain same rectangle size used originally
-    player_init(&gPlayer, startX, startY, gPlayer.w, gPlayer.h);
+// reset all dynamic entities for a fresh round
+static void game_reset_entities(void) {
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        gCrocs[i].active = false;
+        gCrocs[i].vx = 0;
+        gCrocs[i].vy = 0;
+    }
+    for (int i = 0; i < MAX_FRUITS; ++i) {
+        gFruits[i].active = false;
+    }
 }
+
+// respawn after a death: reset player and entities, keep croc speed
+void game_respawn_death(void) {
+    game_reset_entities();
+
+    gRoundWon = false;
+    gRoundJustWon = false;
+
+    // reset player state and position
+    player_init(&gPlayer, 16, 192, 16, 16);
+}
+
+// respawn after a win: reset player and entities, increase croc speed
+void game_respawn_win(void) {
+    game_reset_entities();
+
+    // increase crocodile speed for next round
+    crocodile_increase_speed();
+
+    gRoundWon = false;
+    gRoundJustWon = false;
+
+    // reset player state and position
+    player_init(&gPlayer, 16, 192, 16, 16);
+}
+
 
 
 
