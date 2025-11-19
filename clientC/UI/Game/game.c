@@ -174,6 +174,14 @@ void game_draw_static(const CP_Static* staticMap) {
             DrawText(winMsg, posX, posY, fontSize, YELLOW);
         }
 
+        if (gGameOver) {
+            const char* txt = "GAME OVER";
+            int fs = 24;
+            int tw = MeasureText(txt, fs);
+            DrawText(txt, (VW*SCALE - tw)/2, (VH*SCALE)/3, fs, RED);
+        }
+
+
         DrawFPS(8, 8);
     EndDrawing();
 }
