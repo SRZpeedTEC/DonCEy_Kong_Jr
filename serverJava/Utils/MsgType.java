@@ -12,5 +12,6 @@ public final class MsgType {
         public static final byte TLV_STATE_HEADER   = 0x10;
         public static final byte TLV_PLAYER_CORR    = 0x11;
         public static final byte TLV_ENTITIES_CORR  = 0x12;
+        public static final byte SPECTATOR_STATE = 0x50;   // server->spectator (player state update)
         private MsgType(){}
     }
