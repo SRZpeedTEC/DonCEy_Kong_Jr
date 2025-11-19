@@ -1,118 +1,87 @@
 package MessageManagement;
-import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
 
-import Classes.Player.player;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+
 import serverJava.GameServer;
 import Utils.MsgType;
-import MessageManagement.TLVParser;
 
 public class AnswerProcessor {
-    public interface Handler {
-        void handle(byte[] payload, Session ctx) throws IOException;
-    }
 
-    private final Map<Byte, Handler> handlers = new HashMap<>();
     private final GameServer server;
-    private final Messenger messenger;
 
-    public AnswerProcessor(GameServer server){
+    public AnswerProcessor(GameServer server) {
         this.server = server;
-        this.messenger = new Messenger(server);
-
-        // registra handlers por tipo de frame
-        //handlers.put(MsgType.PLAYER_PROPOSED, this::onPlayerProposed);
-        //handlers.put(MsgType.PING,            this::onPing);
-        
     }
 
-    public void processFrame(DataInputStream in, Session sess) throws IOException {
-        // --- header (16 bytes, big-endian) ---
-        byte version = in.readByte();
-        byte type    = in.readByte();
-        int  _res    = in.readUnsignedShort();
-        int  fromId  = in.readInt();
-        int  gameId  = in.readInt();
-        int  len     = in.readInt();
-
-        if (type == MsgType.PLAYER_PROPOSED) {
-            // payload: tick u32, x i16, y i16, vx i16, vy i16, flags u8
-            int   tick  = in.readInt();
-            short x     = in.readShort();
-            short y     = in.readShort();
-            short vx    = in.readShort();
-            short vy    = in.readShort();
-            byte  flags = in.readByte();
-
-            
-            if (server.p1 != null){
-                server.p1.x = x; server.p1.y = y; server.p1.vx = vx; server.p1.vy = vy;
-            }
-            int playerClientId = sess.clientId();
-            server.broadcastPlayerStateToSpectators(playerClientId, x, y, vx, vy, flags);
-    
-        } else {
-            // descarta payload de otros tipos por ahora
-            if (len > 0) in.skipNBytes(len);
+    public void processFrame(DataInputStream in, Session session) throws IOException {
+        // --- leer header según Proto.writeHeader ---
+        int version = in.readUnsignedByte();
+        if (version != Proto.VERSION) {
+            session.log("Bad protocol version: " + version);
+            // descarta todo lo que quede disponible en el socket para evitar des-sync
+            int avail = in.available();
+            if (avail > 0) in.skipBytes(avail);
             return;
         }
 
-        int   tick  = in.readInt();
-        short x     = in.readShort();
-        short y     = in.readShort();
-        short vx    = in.readShort();
-        short vy    = in.readShort();
-        byte  flags = in.readByte();
+        int type        = in.readUnsignedByte();   // MsgType.*
+        int reserved    = in.readUnsignedShort();  // sin uso
+        int destClient  = in.readInt();            // no lo usamos aquí
+        int gameId      = in.readInt();            // idem
+        int payloadLen  = in.readInt();
 
-        int extra = len - 13;
-        if (extra > 0) {
-            in.skipNBytes(extra);
-        }
-
-        // Mirror player state into server model if present
-        if (server.p1 != null) {
-            server.p1.x  = x;
-            server.p1.y  = y;
-            server.p1.vx = vx;
-            server.p1.vy = vy;
-        }
-
-        // Flags can be inspected later (death, fruit pickup, etc.)
-        return;
-    }
-
-    if (type == MsgType.STATE_BUNDLE) {
-        if (len <= 0) return;
-
-        byte[] buf = new byte[len];
-        in.readFully(buf);
-
-        TLVParser tlv = new TLVParser(buf);
-
-        while (tlv.remaining() > 0) {
-            TLVParser.TLV t = tlv.next();
-            if (t == null) break;
-
-            if (t.type == MsgType.TLV_ENTITIES_CORR) {
-                System.out.println("[ENTITIES_CORR] len=" + t.length);
-
-                // Print raw bytes in hex to verify content
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < t.length; i++) {
-                    sb.append(String.format("%02X ", t.value[i]));
-                }
-                System.out.println(sb.toString());
-
-                // Later this TLV will be parsed and broadcast to spectators
+        byte[] payload = null;
+        if (payloadLen > 0) {
+            payload = in.readNBytes(payloadLen);
+            if (payload.length != payloadLen) {
+                session.log("Short read on payload: expected " + payloadLen +
+                            " got " + payload.length);
+                return;
             }
         }
-        return;
+
+        // --- despachar según tipo ---
+        switch (type) {
+            case MsgType.STATE_BUNDLE -> handleStateBundle(payload, session);
+            case MsgType.PLAYER_PROPOSED -> handlePlayerProposed(payload, session);
+            default -> {
+                // tipos desconocidos: por ahora solo ignorar el payload
+                if (payloadLen > 0) {
+                    session.log("Ignoring unknown msg type: " + type +
+                                " with " + payloadLen + " bytes");
+                }
+            }
+        }
     }
 
-    // For other message types, skip payload for now
-    if (len > 0) {
-        in.skipNBytes(len);
+    private void handleStateBundle(byte[] payload, Session session) throws IOException {
+        if (payload == null || payload.length == 0) {
+            return;
+        }
+
     }
-}
+
+    
+    private void handlePlayerProposed(byte[] payload, Session session) throws IOException {
+        if (payload == null || payload.length < 9) {
+            // x,y,vx,vy = 4 * int16 (8 bytes) + flags (1 byte) = 9 mínimo
+            session.log("PLAYER_PROPOSED payload too short: " + (payload == null ? 0 : payload.length));
+            return;
+        }
+
+        DataInputStream din = new DataInputStream(new ByteArrayInputStream(payload));
+
+        short tick  = in.readShort();
+        short x    = din.readShort();
+        short y    = din.readShort();
+        short vx   = din.readShort();
+        short vy   = din.readShort();
+        byte flags = din.readByte();
+
+
+        int playerClientId = session.clientId();
+        server.broadcastPlayerStateToSpectators(playerClientId, x, y, vx, vy, flags);
+    }
 }

@@ -5,6 +5,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import Utils.Rect;
 import Classes.Player.player;
@@ -280,10 +281,23 @@ public class GameServer {
         System.out.println("Client " + id + " disconnected.");
     }
 
-    public void broadcastPlayerStateToSpectators(int playerClientId,
-                                                short x, short y,
-                                                short vx, short vy,
-                                                byte flags) {
+    private void sendToPlayerGroup(int playerId, Consumer<ClientHandler> action) {
+    // jugador principal
+        ClientHandler player = clients.get(playerId);
+        if (player != null) {
+            action.accept(player);
+        }
+
+        // espectadores
+        List<ClientHandler> specs = spectatorsByPlayer.get(playerId);
+        if (specs != null) {
+            for (ClientHandler s : specs) {
+                action.accept(s);
+            }
+        }
+    }
+
+    public void broadcastPlayerStateToSpectators(int playerClientId, short x, short y, short vx, short vy, byte flags) {
         List<ClientHandler> specs = spectatorsByPlayer.get(playerClientId);
         if (specs == null || specs.isEmpty()) return;
 
@@ -296,43 +310,37 @@ public class GameServer {
         Rect v = vines.get(vineIndex);
         int x = v.x() + v.w()/2;
         int y = quantizeCenterY(v, pos);
-        ClientHandler h = clients.get(clientId);
-        if (h != null) h.sendSpawnCroc(variant, x, y);
+        sendToPlayerGroup(clientId, h -> h.sendSpawnCroc(variant, x, y));
     }
     public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
         int x = v.x() + v.w()/2;
         int y = quantizeCenterY(v, pos);
-        ClientHandler h = clients.get(clientId);
-        if (h != null) h.sendSpawnFruit(variant, x, y);
+        sendToPlayerGroup(clientId, h -> h.sendSpawnFruit(variant, x, y));
     }
     public void spawnCrocOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
         int y = p.y() - 8; // ajusta si quieres el centro: p.y()+p.h()/2
-        ClientHandler h = clients.get(clientId);
-        if (h != null) h.sendSpawnCroc(variant, x, y);
+        sendToPlayerGroup(clientId, h -> h.sendSpawnCroc(variant, x, y));
     }
     public void spawnFruitOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
         int y = p.y() - 8;
-        ClientHandler h = clients.get(clientId);
-        if (h != null) h.sendSpawnFruit(variant, x, y);
+        sendToPlayerGroup(clientId, h -> h.sendSpawnFruit(variant, x, y));
     }
     public void removeFruitOnVineForClient(int clientId, int vineIndex, int pos){
         Rect v = vines.get(vineIndex);
         int x = v.x() + v.w()/2;
         int y = quantizeCenterY(v, pos);
-        ClientHandler h = clients.get(clientId);
-        if (h != null) h.sendRemoveFruit(x, y);
+        sendToPlayerGroup(clientId, h -> h.sendRemoveFruit(x, y));
     }
     public void removeFruitOnPlatformForClient(int clientId, int platIndex, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
         int y = p.y() - 8;
-        ClientHandler h = clients.get(clientId);
-        if (h != null) h.sendRemoveFruit(x, y);
+        sendToPlayerGroup(clientId, h -> h.sendRemoveFruit(x, y));
     }
 
 

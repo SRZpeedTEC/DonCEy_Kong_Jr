@@ -9,6 +9,9 @@ enum {
   CP_TYPE_INIT_GEOM    = 0x02, // s -> c (LEGACY INIT_STATIC)
   CP_TYPE_INIT_STATIC  = 0x02, // alias
   CP_TYPE_STATE_BUNDLE = 0x10, // s -> c (TLV adentro)
+  CP_TYPE_TLV_STATE_HEADER = 0x11,
+  CP_TYPE_TLV_PLAYER_CORR  = 0x12,
+  CP_TYPE_TLV_ENTITIES_CORR = 0x13,
   CP_TYPE_PLAYER_PROP  = 0x20, // c -> s (inputs / propuesta)
   CP_TYPE_SPAWN_CROC   = 0x30, // s -> c (spawn crocodile at coords)
   CP_TYPE_SPAWN_FRUIT  = 0x40, // s -> c (spawn fruit at coords)
