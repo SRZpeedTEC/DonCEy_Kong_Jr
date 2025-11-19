@@ -25,7 +25,7 @@ public class GameServer {
     // Map playerId -> list of spectator observers
     private final Map<Integer, List<ClientHandler>> spectatorsByPlayer = new ConcurrentHashMap<>();
 
-
+    private final ConcurrentHashMap<Integer, player> playerStates = new ConcurrentHashMap<>();
 
     // ---- Level & game state ----
 
@@ -39,12 +39,11 @@ public class GameServer {
     public final List<Rect> crocodiles    = new ArrayList<>();
     public final List<Rect> fruits     = new ArrayList<>();
 
+
+
     // Player rectangle used in Messenger.sendInitStaticLegacy
     public Rect player = new Rect(0, 0, 0, 0);
 
-    // p1 is the logical player object used in AnswerProcessor
-    // AnswerProcessor sets p1.x, p1.y, p1.vx, p1.vy
-    public player p1 = null;
 
     public GameServer(int port) {
         this.port = port;
@@ -178,6 +177,8 @@ public class GameServer {
         }
     }
 
+    
+
 
     private Integer choosePlayerForSpectator() {
         Integer best = null;
@@ -193,6 +194,15 @@ public class GameServer {
             }
         }
         return best;
+    }
+
+    public player getPlayerFromServer(int clientId) {
+       return playerStates.computeIfAbsent(clientId, id -> {
+        player p = new player(0, 0); 
+        p.setLives(3);  
+        p.setScore(0);
+        return p;
+    });
     }
 
 
@@ -268,6 +278,7 @@ public class GameServer {
         if (role == ClientRole.PLAYER) {
             // Remove player and all its spectators
             players.remove(id);
+            playerStates.remove(id);
             List<ClientHandler> specs = spectatorsByPlayer.remove(id);
             if (specs != null) {
                 System.out.println("Player " + id + " disconnected; removed " + specs.size() + " spectators");

@@ -75,6 +75,21 @@ public class Messenger {
         session.out().flush();
     }
 
+    public void sendRespawnDeath(Session session) throws IOException {
+        Proto.writeHeader(session.out(), MsgType.PLAYER_RESPAWN, session.clientId(), 0, 0);
+        session.out().flush();
+    }
+
+    public void sendGameOver(Session session) throws IOException {
+        Proto.writeHeader(session.out(), MsgType.PLAYER_GAME_OVER, session.clientId(), 0, 0);
+        session.out().flush();
+    }
+
+    public void sendRespawnWin(Session session) throws IOException {
+        Proto.writeHeader(session.out(), MsgType.RESPAWN_VICTORY, session.clientId(), 0, 0);
+        session.out().flush();
+    }
+
     public void sendSpectatorState(Session s,
                                 short x, short y,
                                 short vx, short vy,

@@ -24,6 +24,7 @@ public class ClientHandler extends Thread {
     private final Session session;
     private final AnswerProcessor answerProcessor;
     private final Messenger messenger;
+    private player player;
 
     private ClientRole role;
     private Integer observedPlayerId;
@@ -33,6 +34,7 @@ public class ClientHandler extends Thread {
         this.clientId = clientId;
         this.socket   = socket;
         this.server   = server;   // store reference to GameServer
+        this.player   = server.getPlayerFromServer(clientId);
         this.role     = role;
         this.observedPlayerId = observedPlayerId;
 
@@ -57,6 +59,14 @@ public class ClientHandler extends Thread {
 
     public Integer getObservedPlayerId() {
         return observedPlayerId;
+    }
+
+    public player getPlayer() {
+        return player;
+    }
+
+    public int getClientId() {
+        return clientId;
     }
 
     public void sendSpectatorState(short x, short y, short vx, short vy, byte flags) {
