@@ -6,6 +6,7 @@ import java.util.Map;
 import Classes.Player.player;
 import serverJava.GameServer;
 import Utils.MsgType;
+import MessageManagement.TLVParser;
 
 public class AnswerProcessor {
     public interface Handler {
@@ -54,6 +55,64 @@ public class AnswerProcessor {
         } else {
             // descarta payload de otros tipos por ahora
             if (len > 0) in.skipNBytes(len);
+            return;
         }
+
+        int   tick  = in.readInt();
+        short x     = in.readShort();
+        short y     = in.readShort();
+        short vx    = in.readShort();
+        short vy    = in.readShort();
+        byte  flags = in.readByte();
+
+        int extra = len - 13;
+        if (extra > 0) {
+            in.skipNBytes(extra);
+        }
+
+        // Mirror player state into server model if present
+        if (server.p1 != null) {
+            server.p1.x  = x;
+            server.p1.y  = y;
+            server.p1.vx = vx;
+            server.p1.vy = vy;
+        }
+
+        // Flags can be inspected later (death, fruit pickup, etc.)
+        return;
     }
+
+    if (type == MsgType.STATE_BUNDLE) {
+        if (len <= 0) return;
+
+        byte[] buf = new byte[len];
+        in.readFully(buf);
+
+        TLVParser tlv = new TLVParser(buf);
+
+        while (tlv.remaining() > 0) {
+            TLVParser.TLV t = tlv.next();
+            if (t == null) break;
+
+            if (t.type == MsgType.TLV_ENTITIES_CORR) {
+                System.out.println("[ENTITIES_CORR] len=" + t.length);
+
+                // Print raw bytes in hex to verify content
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < t.length; i++) {
+                    sb.append(String.format("%02X ", t.value[i]));
+                }
+                System.out.println(sb.toString());
+
+                // Later this TLV will be parsed and broadcast to spectators
+            }
+        }
+        return;
+    }
+
+    // For other message types, skip payload for now
+    if (len > 0) {
+        in.skipNBytes(len);
+    }
+}
 }
