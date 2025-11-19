@@ -62,7 +62,7 @@ public void processFrame(DataInputStream in, Session sess) throws IOException {
             server.p1.vx = vx;
             server.p1.vy = vy;
         }
-
+        int playerClientId = sess.clientId();
         server.broadcastPlayerStateToSpectators(fromId, x, y, vx, vy, flags);
 
         return;
