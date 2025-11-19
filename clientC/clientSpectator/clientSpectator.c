@@ -13,6 +13,24 @@
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
 static FrameHandler g_frameHandlers[256];
 
+
+static void on_spectator_state(const uint8_t* payloadPtr, uint32_t payloadLen)
+{
+    // Esperamos: 2+2+2+2+1 = 9 bytes
+    if (payloadLen < 9) {
+        return;
+    }
+
+    int16_t x  = (int16_t)((payloadPtr[0] << 8) | payloadPtr[1]);
+    int16_t y  = (int16_t)((payloadPtr[2] << 8) | payloadPtr[3]);
+    int16_t vx = (int16_t)((payloadPtr[4] << 8) | payloadPtr[5]);
+    int16_t vy = (int16_t)((payloadPtr[6] << 8) | payloadPtr[7]);
+    uint8_t flags = payloadPtr[8];
+
+    // Aplicamos el estado al jugador local del espectador
+    game_apply_remote_state(x, y, vx, vy, flags);
+}
+
 // ---- spawn entities from the server ----
 static void on_spawn_croc(const uint8_t *p, uint32_t n){
     uint8_t variant = 0; int16_t x=0, y=0;
@@ -119,6 +137,7 @@ int main(int argc, char** argv) {
     disp_register(CP_TYPE_SPAWN_CROC,   on_spawn_croc);
     disp_register(CP_TYPE_SPAWN_FRUIT,  on_spawn_fruit);
     disp_register(CP_TYPE_REMOVE_FRUIT, on_remove_fruit);
+    disp_register(CP_TYPE_SPECTATOR_STATE, on_spectator_state);
 
     CP_Header header;
 

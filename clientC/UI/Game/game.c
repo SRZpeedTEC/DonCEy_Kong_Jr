@@ -193,6 +193,24 @@ void game_apply_correction(uint32_t tick, uint8_t grounded, int16_t platId, int1
     }
 }
 
+void game_apply_remote_state(int16_t x, int16_t y, int16_t vx, int16_t vy, uint8_t flags) {
+    // Sobrescribe la posición y velocidad del jugador con lo que manda el server
+    gPlayer.x  = x;
+    gPlayer.y  = y;
+    gPlayer.vx = vx;
+    gPlayer.vy = vy;
+
+    // Flags vienen con el mismo significado que en game_update_and_get_proposal:
+    // bit 0 -> grounded
+    // bit 1 -> just died
+    gPlayer.grounded = (flags & 0x01) != 0;
+
+    if (flags & 0x02) {
+        // Si quieres reflejar la muerte en pantalla:
+        gPlayer.isDead = true;
+    }
+}
+
 void game_spawn_croc(uint8_t variant, int16_t x, int16_t y) {
     // search for an inactive crocodile to spawn
     for (int i = 0; i < MAX_CROCS; ++i) {
