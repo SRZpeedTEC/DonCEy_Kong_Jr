@@ -19,6 +19,7 @@ typedef struct {
     int16_t vx;  
     int16_t vy;
     int8_t  dirX;   // -1 left, +1 right for horizontal movement
+    uint8_t  frameCounter;
 
 } Crocodile;
 

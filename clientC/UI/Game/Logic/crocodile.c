@@ -4,16 +4,16 @@
 #include "map.h"
 #include "constants.h"
 
-// number of frames between crocodile movement updates
+// number of frames between crocodile movement steps
 #define CROC_FRAME_DIV 3
 
 // internal base speed shared by all crocodiles
 static int g_crocBaseSpeed = 0;
 
-// global frame counter to slow down crocodile updates
-static int g_crocFrameCounter = 0;
+// small tolerance for "standing on a platform" checks
+#define CROC_PLATFORM_TOLERANCE 1
 
-// compute the current speed in pixels per movement step
+// compute current crocodile speed in pixels per step
 static int croc_speed(void) {
     if (g_crocBaseSpeed <= 0) {
         g_crocBaseSpeed = (CROC_BASE_SPEED > 0) ? CROC_BASE_SPEED : 1;
@@ -24,7 +24,7 @@ static int croc_speed(void) {
     return s;
 }
 
-// external hook to increase crocodile speed for higher difficulty
+// external hook to increase crocodile speed (difficulty up)
 void crocodile_increase_speed(void) {
     if (g_crocBaseSpeed <= 0) {
         g_crocBaseSpeed = (CROC_BASE_SPEED > 0) ? CROC_BASE_SPEED : 1;
@@ -69,7 +69,8 @@ static bool croc_on_platform(const Crocodile* c,
         const CP_Rect* p = &st->plat[i];
 
         bool horiz = (right > p->x) && (left < p->x + p->w);
-        bool onTop = (feetY == p->y);
+        bool onTop = (feetY >= p->y - CROC_PLATFORM_TOLERANCE &&
+                      feetY <= p->y + CROC_PLATFORM_TOLERANCE);
 
         if (horiz && onTop) {
             if (outIndex) *outIndex = (int)i;
@@ -103,7 +104,7 @@ static bool croc_on_vine(const Crocodile* c,
     return false;
 }
 
-// blue crocodile: slide down vines, walk on platforms, fall into water
+// blue crocodile: slide down vines, walk right on platforms, then fall
 static void update_blue_croc(Crocodile* c,
                              const CP_Static* st,
                              int worldTop,
@@ -126,7 +127,7 @@ static void update_blue_croc(Crocodile* c,
     if (onPlat) {
         const CP_Rect* p = &st->plat[platIndex];
 
-        // start moving right when first landing on a platform
+        // start moving to the right when we first land
         if (c->vx == 0) {
             c->vx = speed;
         }
@@ -138,7 +139,7 @@ static void update_blue_croc(Crocodile* c,
             (c->x + c->w > p->x) &&
             (c->x < p->x + p->w);
 
-        // if we left the platform, start falling straight down
+        // if we left the platform, start falling
         if (!stillOn) {
             c->vx = 0;
             c->vy = speed;
@@ -158,7 +159,7 @@ static void update_blue_croc(Crocodile* c,
     }
 }
 
-// red crocodile: slide down vines, then oscillate on platforms
+// red crocodile: oscillate on vines (vertical) or on platforms (horizontal)
 static void update_red_croc(Crocodile* c,
                             const CP_Static* st,
                             int worldTop,
@@ -171,19 +172,49 @@ static void update_red_croc(Crocodile* c,
     bool onVine = croc_on_vine(c, st, &vineIndex);
     bool onPlat = croc_on_platform(c, st, &platIndex);
 
-    if (onVine && !onPlat) {
+    // if on a vine, oscillate up and down along that vine
+    if (onVine) {
+        const CP_Rect* v = &st->vines[vineIndex];
+
+        // keep horizontal position centered on vine so we do not slip out
+        int vineCenterX = v->x + v->w / 2;
+        c->x = vineCenterX - c->w / 2;
+
+        // initialize vertical direction if needed
+        if (c->vy == 0) {
+            c->vy = speed; // start going down
+        }
+
+        // move along current direction
+        if (c->vy > 0) {
+            c->y += speed;
+        } else {
+            c->y -= speed;
+        }
+
+        // compute allowed vertical range inside this vine
+        int topLimit    = v->y;
+        int bottomLimit = v->y + v->h - c->h;
+
+        // bounce at the ends of the vine
+        if (c->y < topLimit) {
+            c->y = topLimit;
+            c->vy = speed;      // switch to going down
+        } else if (c->y > bottomLimit) {
+            c->y = bottomLimit;
+            c->vy = -speed;     // switch to going up
+        }
+
         c->vx = 0;
-        c->vy = speed;
-        c->y += c->vy;
         return;
     }
 
+    // if on a platform, oscillate left-right over that platform
     if (onPlat) {
         const CP_Rect* p = &st->plat[platIndex];
 
-        // if no direction yet, start to the right
         if (c->vx == 0) {
-            c->vx = speed;
+            c->vx = speed; // start moving right
         }
 
         c->x += c->vx;
@@ -191,7 +222,6 @@ static void update_red_croc(Crocodile* c,
         int leftLimit  = p->x;
         int rightLimit = p->x + p->w - c->w;
 
-        // bounce at platform edges
         if (c->x < leftLimit) {
             c->x  = leftLimit;
             c->vx = speed;      // go right
@@ -204,7 +234,7 @@ static void update_red_croc(Crocodile* c,
         return;
     }
 
-    // in air: fall until we remove the crocodile
+    // in the air: small straight fall
     c->vx = 0;
     c->vy = speed;
     c->y += c->vy;
@@ -218,36 +248,39 @@ static void update_red_croc(Crocodile* c,
 // initialize crocodile with default size and inactive state
 void crocodile_init(Crocodile* croc, int16_t defaultW, int16_t defaultH) {
     if (!croc) return;
-    croc->active  = false;
-    croc->variant = CROC_VARIANT_RED; // default variant
-    croc->x = 0;
-    croc->y = 0;
-    croc->w = defaultW;
-    croc->h = defaultH;
-    croc->vx = 0;
-    croc->vy = 0;
+    croc->active       = false;
+    croc->variant      = CROC_VARIANT_RED; // default variant
+    croc->x            = 0;
+    croc->y            = 0;
+    croc->w            = defaultW;
+    croc->h            = defaultH;
+    croc->vx           = 0;
+    croc->vy           = 0;
+    croc->frameCounter = 0;
 }
 
 // activate crocodile at given position
 void crocodile_spawn(Crocodile* croc, uint8_t variant, int16_t x, int16_t y) {
     if (!croc) return;
-    croc->variant = variant;
-    croc->x = x;
-    croc->y = y;
-    croc->vx = 0;
-    croc->vy = 0;
-    croc->active = true;
+    croc->variant      = variant;
+    croc->x            = x;
+    croc->y            = y;
+    croc->vx           = 0;
+    croc->vy           = 0;
+    croc->frameCounter = 0;
+    croc->active       = true;
 }
 
 // per-frame update for a single crocodile
 void crocodile_update(Crocodile* croc, const MapView* map) {
     if (!croc || !croc->active || !map) return;
 
-    // slow down updates so crocodiles move only every N frames
-    g_crocFrameCounter++;
-    if (g_crocFrameCounter % CROC_FRAME_DIV != 0) {
+    // each crocodile has its own frame divider to slow movement
+    croc->frameCounter++;
+    if (croc->frameCounter < CROC_FRAME_DIV) {
         return;
     }
+    croc->frameCounter = 0;
 
     const CP_Static* st = map_static(map);
     if (!st) return;
