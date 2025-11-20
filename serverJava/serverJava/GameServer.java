@@ -230,18 +230,18 @@ public class GameServer {
             Integer observedPlayerId = null;
             
             synchronized (this) {
-                if (players.size() < 2) {
-                    // Become a PLAYER
+                if (players.isEmpty()) {
+                    // First client ever: PLAYER
                     role = ClientRole.PLAYER;
                     observedPlayerId = null;
                     System.out.println("Client " + clientId + " registered as PLAYER");
                 } else {
-                    // Become a SPECTATOR: attach to player with fewer than 2 spectators
+                    // Every other client: SPECTATOR
                     Integer targetPlayerId = choosePlayerForSpectator();
                     if (targetPlayerId == null) {
                         System.out.println("No player slot available for spectator " + clientId);
                         socket.close();
-                        continue; // reject connection or handle differently
+                        continue;
                     }
                     role = ClientRole.SPECTATOR;
                     observedPlayerId = targetPlayerId;

@@ -21,8 +21,9 @@ endif()
 # ----------------------------------------------------------
 set(CLIENT_COMMON_SOURCES "")
 foreach(src ${ALL_CLIENT_SOURCES})
-  if (src MATCHES "clientPlayer/clientPlayer\\.c$" OR
-      src MATCHES "clientSpectator/clientSpectator\\.c$")
+  if (src MATCHES "launcher/launcher\\.c$" OR
+      src MATCHES "clientPlayer/clientPlayerMain\\.c$" OR
+      src MATCHES "clientSpectator/clientSpectatorMain\\.c$")
     # No los metemos en las fuentes comunes
   else()
     list(APPEND CLIENT_COMMON_SOURCES "${src}")
@@ -34,7 +35,7 @@ endforeach()
 # ----------------------------------------------------------
 set(PLAYER_SOURCES
     ${CLIENT_COMMON_SOURCES}
-    "${CMAKE_SOURCE_DIR}/clientC/clientPlayer/clientPlayer.c"
+    "${CMAKE_SOURCE_DIR}/clientC/clientPlayer/clientPlayerMain.c"
 )
 
 add_executable(player ${PLAYER_SOURCES})
@@ -44,10 +45,18 @@ add_executable(player ${PLAYER_SOURCES})
 # ----------------------------------------------------------
 set(SPECTATOR_SOURCES
     ${CLIENT_COMMON_SOURCES}
-    "${CMAKE_SOURCE_DIR}/clientC/clientSpectator/clientSpectator.c"
+    "${CMAKE_SOURCE_DIR}/clientC/clientSpectator/clientSpectatorMain.c"
 )
 
 add_executable(spectator ${SPECTATOR_SOURCES})
+
+# 4b. Ejecutable launcher (UI con Raylib)
+set(LAUNCHER_SOURCES
+    ${CLIENT_COMMON_SOURCES}
+    "${CMAKE_SOURCE_DIR}/clientC/launcher/launcher.c"
+)
+
+add_executable(launcher ${LAUNCHER_SOURCES})
 
 # ----------------------------------------------------------
 # 5. Includes: añade todas las carpetas que contienen .c
@@ -61,6 +70,7 @@ list(REMOVE_DUPLICATES INC_DIRS)
 
 target_include_directories(player    PRIVATE ${INC_DIRS})
 target_include_directories(spectator PRIVATE ${INC_DIRS})
+target_include_directories(launcher  PRIVATE ${INC_DIRS})
 
 # ----------------------------------------------------------
 # 6. Raylib
@@ -72,14 +82,18 @@ if (WIN32)
   if (raylib_FOUND)
     target_link_libraries(player    PRIVATE raylib)
     target_link_libraries(spectator PRIVATE raylib)
+    target_link_libraries(launcher  PRIVATE raylib)
   else()
     # Fallback manual si no encuentra el package config
     target_link_libraries(player    PRIVATE raylib opengl32 gdi32 winmm ws2_32)
     target_link_libraries(spectator PRIVATE raylib opengl32 gdi32 winmm ws2_32)
+    target_link_libraries(launcher  PRIVATE raylib opengl32 gdi32 winmm ws2_32)
   endif()
 
   target_link_libraries(player    PRIVATE ws2_32)
   target_link_libraries(spectator PRIVATE ws2_32)
+  target_link_libraries(launcher  PRIVATE ws2_32)
+
 
 else()
   if(APPLE)
@@ -87,13 +101,16 @@ else()
     find_package(raylib CONFIG REQUIRED)
     target_link_libraries(player    PRIVATE raylib)
     target_link_libraries(spectator PRIVATE raylib)
+    target_link_libraries(launcher  PRIVATE raylib)
 
   else()  # Linux
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(RAYLIB REQUIRED raylib)
     target_include_directories(player    PRIVATE ${RAYLIB_INCLUDE_DIRS})
     target_include_directories(spectator PRIVATE ${RAYLIB_INCLUDE_DIRS})
+    target_include_directories(launcher  PRIVATE ${RAYLIB_INCLUDE_DIRS})
     target_link_libraries(player    PRIVATE ${RAYLIB_LIBRARIES})
     target_link_libraries(spectator PRIVATE ${RAYLIB_LIBRARIES})
+    target_link_libraries(launcher  PRIVATE ${RAYLIB_LIBRARIES})
   endif()
 endif()
