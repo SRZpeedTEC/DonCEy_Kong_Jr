@@ -103,30 +103,27 @@ static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, 
     return cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, sizeof outBuf) ? 1 : 0;
 }
 
-
-// ---- main ----
-int main(int argCount, char** argValues){
-
-    // Parses args
-    if (argCount<3){ fprintf(stderr,"Usage: %s <ip> <port>\n", argValues[0]); return 1; }
-
+int run_player_client(const char* ip, uint16_t port) {
 
     // Network init + connect
-    if (!net_init()){ fprintf(stderr,"Net init fail\n"); return 1; }
+    if (!net_init()) {
+        fprintf(stderr, "Net init fail\n");
+        return 1;
+    }
 
-    int socketFd = net_connect(argValues[1], (uint16_t)atoi(argValues[2])); // socket TCP
-    if (socketFd < 0){ net_cleanup(); return 1; }
-
+    int socketFd = net_connect(ip, port); // socket TCP
+    if (socketFd < 0) {
+        net_cleanup();
+        return 1;
+    }
 
     // Register handlers
-    for (int i=0;i<256;i++) g_frameHandlers[i]=NULL;
+    for (int i = 0; i < 256; i++) g_frameHandlers[i] = NULL;
     disp_register(CP_TYPE_INIT_STATIC,  on_init_static);
     disp_register(CP_TYPE_STATE_BUNDLE, on_state_bundle);
-    disp_register(CP_TYPE_SPAWN_CROC, on_spawn_croc);
-    disp_register(CP_TYPE_SPAWN_FRUIT, on_spawn_fruit);
+    disp_register(CP_TYPE_SPAWN_CROC,   on_spawn_croc);
+    disp_register(CP_TYPE_SPAWN_FRUIT,  on_spawn_fruit);
     disp_register(CP_TYPE_REMOVE_FRUIT, on_remove_fruit);
-
-
 
     // ACK
     CP_Header header;
@@ -206,4 +203,7 @@ done:
     net_close(socketFd);
     net_cleanup();
     return 0;
+
 }
+
+
