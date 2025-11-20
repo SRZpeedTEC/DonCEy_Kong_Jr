@@ -46,8 +46,7 @@ public class ClientHandler extends Thread {
         this.messenger       = new Messenger(server);
 
         // --- ACK al conectar ---
-        Proto.writeHeader(out, MsgType.CLIENT_ACK, clientId, 0, 0);
-        out.flush();
+        messenger.sendClientAck(session, role);
 
         // --- Mapa estático inicial ---
         messenger.sendInitStaticLegacy(clientId, out);
@@ -69,12 +68,16 @@ public class ClientHandler extends Thread {
         return clientId;
     }
 
+    public synchronized void setObservedPlayerId(Integer pid) {
+        this.observedPlayerId = pid;
+    }
+
     public void sendSpectatorState(short x, short y, short vx, short vy, byte flags) {
         try {
             messenger.sendSpectatorState(session, x, y, vx, vy, flags);
-            session.log("Sent SPECTATOR_STATE to client " + clientId +
-                        " (x=" + x + ", y=" + y + ", vx=" + vx + ", vy=" + vy +
-                        ", flags=" + flags + ")");
+            //session.log("Sent SPECTATOR_STATE to client " + clientId +
+              //          " (x=" + x + ", y=" + y + ", vx=" + vx + ", vy=" + vy +
+                //        ", flags=" + flags + ")");
         } catch (IOException e) {
             session.log("Error sending SPECTATOR_STATE: " + e.getMessage());
         }

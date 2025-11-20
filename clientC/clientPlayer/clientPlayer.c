@@ -163,15 +163,37 @@ int run_player_client(const char* ip, uint16_t port)
 
     // ACK
     CP_Header header;
+    uint8_t roleByte = 0;
 
     // Lee ACK
-    if (!cp_read_header(socketFd,&header) || header.type!=CP_TYPE_CLIENT_ACK){
-        fprintf(stderr,"Bad ACK\n"); goto done;
+    if (!cp_read_header(socketFd, &header) || header.type != CP_TYPE_CLIENT_ACK) {
+        fprintf(stderr, "Bad ACK (expected CLIENT_ACK)\n");
+        goto done;
     }
-    // Descarta payload si existe
-    if (header.payloadLen){
-        uint8_t* skipPayload=(uint8_t*)malloc(header.payloadLen);
-        if (skipPayload){ net_read_n(socketFd,skipPayload,header.payloadLen); free(skipPayload); }
+
+    // Leer payload: debe tener al menos 1 byte (el rol)
+    if (header.payloadLen > 0) {
+        uint8_t* payload = (uint8_t*)malloc(header.payloadLen);
+        if (!payload) goto done;
+
+        if (net_read_n(socketFd, payload, header.payloadLen) <= 0) {
+            free(payload);
+            goto done;
+        }
+
+        roleByte = payload[0];   // primer byte = rol
+        free(payload);
+    } else {
+        fprintf(stderr, "CLIENT_ACK without payload (role byte missing)\n");
+        goto done;
+    }
+
+    // Este ejecutable espera ser PLAYER (roleByte == 1)
+    if (roleByte != 1) {
+        fprintf(stderr,
+                "Server assigned role %u (expected PLAYER=1). Closing.\n",
+                (unsigned)roleByte);
+        goto done;
     }
 
     // INIT_STATIC

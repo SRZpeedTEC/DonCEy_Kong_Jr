@@ -21,6 +21,20 @@ public class AnswerProcessor {
         
     }
 
+    private void handleSpectateRequest(byte[] payload, Session sess) {
+        if (payload == null || payload.length < 1) {
+            return;
+        }
+
+        int desiredSlot = payload[0] & 0xFF;  // 1 or 2
+        int spectatorId = sess.clientId();
+
+        boolean ok = server.attachSpectatorToSlot(spectatorId, desiredSlot);
+        if (!ok) {
+            System.out.println("Spectator " + spectatorId
+                    + " failed to attach to slot " + desiredSlot + " (no player or full).");
+        }
+    }
 
     public void processFrame(DataInputStream in, Session sess) throws IOException {
         byte version = in.readByte();
@@ -78,9 +92,13 @@ public class AnswerProcessor {
 
             p.increaseLife();               // +1 vida (según tu regla)
             messenger.sendRespawnWin(sess); // -> CP_TYPE_RESPAWN_WIN
-         }
+        }
 
-
+        if (type == MsgType.SPECTATE_REQUEST) {
+            byte[] payload = (len > 0) ? in.readNBytes(len) : new byte[0];
+            handleSpectateRequest(payload, sess);
+            return;
+        }
         
         if (len > 0) in.skipNBytes(len);
     }

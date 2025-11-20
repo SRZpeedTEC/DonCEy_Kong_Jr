@@ -39,7 +39,8 @@ public class GameServer {
     public final List<Rect> crocodiles    = new ArrayList<>();
     public final List<Rect> fruits     = new ArrayList<>();
 
-
+    private Integer playerSlot1 = null;
+    private Integer playerSlot2 = null;
 
     // Player rectangle used in Messenger.sendInitStaticLegacy
     public Rect player = new Rect(0, 0, 0, 0);
@@ -177,23 +178,99 @@ public class GameServer {
         }
     }
 
+    public synchronized boolean attachSpectatorToSlot(ClientHandler spectator, int slotIndex) {
+        Integer targetPlayerId = null;
+        if (slotIndex == 1) {
+            targetPlayerId = playerSlot1;
+        } else if (slotIndex == 2) {
+            targetPlayerId = playerSlot2;
+        } else {
+            return false; // slot inválido
+        }
+
+        if (targetPlayerId == null) {
+            // no hay player en ese slot
+            return false;
+        }
+
+        var specs = spectatorsByPlayer
+                .computeIfAbsent(targetPlayerId,
+                        k -> Collections.synchronizedList(new ArrayList<>()));
+
+        if (specs.size() >= 2) {
+            // ya tiene 2 espectadores
+            return false;
+        }
+
+        specs.add(spectator);
+        spectator.setObservedPlayerId(targetPlayerId);
+        System.out.println("Spectator " + spectator.getClientId()
+                + " attached to player " + targetPlayerId
+                + " (slot " + slotIndex + ")");
+        return true;
+    }
+
     
+    public synchronized boolean attachSpectatorToSlot(int spectatorClientId, int slotIndex) {
+        ClientHandler spectator = clients.get(spectatorClientId);
+        if (spectator == null) {
+            return false; // client disappeared
+        }
+        if (spectator.getRole() != ClientRole.SPECTATOR) {
+            return false; // only spectators can attach
+        }
+
+        Integer targetPlayerId = null;
+        if (slotIndex == 1) {
+            targetPlayerId = playerSlot1;
+        } else if (slotIndex == 2) {
+            targetPlayerId = playerSlot2;
+        } else {
+            return false; // invalid slot
+        }
+
+        if (targetPlayerId == null) {
+            // no player in that slot yet
+            return false;
+        }
+
+        var specs = spectatorsByPlayer
+                .computeIfAbsent(targetPlayerId,
+                        k -> Collections.synchronizedList(new ArrayList<>()));
+
+        if (specs.size() >= 2) {
+            // already 2 spectators for that player
+            return false;
+        }
+
+        specs.add(spectator);
+        spectator.setObservedPlayerId(targetPlayerId);
+
+        System.out.println("Spectator " + spectatorClientId
+                + " attached to player " + targetPlayerId
+                + " (slot " + slotIndex + ")");
+        return true;
+    }
+
 
 
     private Integer choosePlayerForSpectator() {
-        Integer best = null;
-        int bestCount = Integer.MAX_VALUE;
+        Integer bestPlayerId = null;
+        int minSpecs = Integer.MAX_VALUE;
 
-        for (Map.Entry<Integer, ClientHandler> e : players.entrySet()) {
-            int pid = e.getKey();
-            List<ClientHandler> specs = spectatorsByPlayer.get(pid);
-            int count = (specs == null) ? 0 : specs.size();
-            if (count < 2 && count < bestCount) {
-                bestCount = count;
-                best = pid;
+        for (Map.Entry<Integer, ClientHandler> entry : players.entrySet()) {
+            Integer pid = entry.getKey();
+            List<ClientHandler> specs =
+                spectatorsByPlayer.getOrDefault(pid,
+                    Collections.synchronizedList(new ArrayList<>()));
+
+            if (specs.size() < 2 && specs.size() < minSpecs) {
+                minSpecs = specs.size();
+                bestPlayerId = pid;
             }
         }
-        return best;
+
+        return bestPlayerId;  // null if all have >=2 spectators
     }
 
     public player getPlayerFromServer(int clientId) {
@@ -230,22 +307,33 @@ public class GameServer {
             Integer observedPlayerId = null;
             
             synchronized (this) {
-                if (players.isEmpty()) {
-                    // First client ever: PLAYER
+                Integer freeSlot = null;
+
+                if (playerSlot1 == null) {
+                    freeSlot = 1;
+                } else if (playerSlot2 == null) {
+                    freeSlot = 2;
+                }
+
+                if (freeSlot != null) {
+                    // There is an empty player slot → this client becomes PLAYER
                     role = ClientRole.PLAYER;
                     observedPlayerId = null;
-                    System.out.println("Client " + clientId + " registered as PLAYER");
-                } else {
-                    // Every other client: SPECTATOR
-                    Integer targetPlayerId = choosePlayerForSpectator();
-                    if (targetPlayerId == null) {
-                        System.out.println("No player slot available for spectator " + clientId);
-                        socket.close();
-                        continue;
+
+                    if (freeSlot == 1) {
+                        playerSlot1 = clientId;
+                    } else {
+                        playerSlot2 = clientId;
                     }
+
+                    System.out.println("Client " + clientId
+                            + " registered as PLAYER in slot " + freeSlot);
+                } else {
+                    // No free player slot → this client MUST be SPECTATOR
                     role = ClientRole.SPECTATOR;
-                    observedPlayerId = targetPlayerId;
-                    System.out.println("Client " + clientId + " registered as SPECTATOR of player " + targetPlayerId);
+                    observedPlayerId = null;
+                    System.out.println("Client " + clientId
+                            + " registered as SPECTATOR (pending selection)");
                 }
             }
 
@@ -256,12 +344,10 @@ public class GameServer {
             if (role == ClientRole.PLAYER) {
                 players.put(clientId, handler);
                 spectatorsByPlayer.putIfAbsent(clientId, Collections.synchronizedList(new ArrayList<>()));
-            }else {
-            // It’s a spectator -> register as observer for that player
-            spectatorsByPlayer
-                .computeIfAbsent(observedPlayerId, k -> Collections.synchronizedList(new ArrayList<>()))
-                .add(handler);
-        }
+            } else {
+                // SPECTATOR: todavía no sabemos a qué player va a ver,
+                // se registrará cuando llegue SPECTATE_REQUEST
+            }
 
             handler.start();
             System.out.println("Client connected, id=" + clientId + " from " + socket.getRemoteSocketAddress());
