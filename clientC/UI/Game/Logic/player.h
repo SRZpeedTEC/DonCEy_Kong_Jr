@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "fruit.h"
 
 typedef struct {
     int16_t x, y;      // top-left position in pixels
@@ -27,8 +28,11 @@ typedef struct {
 
     // death state
     bool isDead;     // true after Jr dies, until respawn
-    bool justDied;   // true solo el frame en que pasa de vivo -> muerto
+    bool justDied;   // true only in the frame that Jr dies
+
+    bool justPickedFruit;
 } Player;
+
 
 
 // Initialize player with defaults.
@@ -40,4 +44,7 @@ void player_mark_dead(Player* p);
 // helpers to query death state
 bool player_is_dead(const Player* p);
 bool player_just_died(Player* p);
+
+
+
 

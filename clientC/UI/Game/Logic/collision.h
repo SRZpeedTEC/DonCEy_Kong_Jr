@@ -4,11 +4,13 @@
 #include <stdbool.h>
 #include "player.h"
 #include "map.h"
+#include "fruit.h"
 
 typedef enum {
     COLLISION_PHASE_HORIZONTAL,
     COLLISION_PHASE_VERTICAL
 } CollisionPhase;
+
 
 // Simple integer AABB overlap test.
 bool rects_overlap_i(int ax, int ay, int aw, int ah,
@@ -45,3 +47,5 @@ bool player_hits_water(const Player* player, const MapView* map);
 
 // true if player overlaps mario kill rectangle
 bool player_touching_mario(const Player* player);
+
+bool player_pick_fruits(Player* player, Fruit* fruits, int count);

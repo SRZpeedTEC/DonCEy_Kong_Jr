@@ -34,6 +34,9 @@ static Crocodile gCrocs[MAX_CROCS];
 // fruits state
 static Fruit gFruits[MAX_FRUITS];
 
+// total fruits picked in this run (debug counter)
+static int gFruitsPickedCount = 0;
+
 // round win state (handled only in game.c)
 static bool gRoundWon = false;
 static bool gRoundJustWon = false;
@@ -61,6 +64,7 @@ static void game_check_win_condition(void) {
     }
 }
 
+
 // --- init / shutdown ---
 void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     VW = (int)vw; VH = (int)vh; SCALE = (int)scale;
@@ -82,6 +86,10 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     for (int i = 0; i < MAX_FRUITS; i++){
         fruit_init(&gFruits[i], 8,8);
     }
+
+    // total fruits picked in this run (debug counter)
+    static int gFruitsPickedCount = 0;
+
 }
 
 void game_shutdown(void) {
@@ -181,6 +189,13 @@ void game_draw_static(const CP_Static* staticMap) {
             DrawText(txt, (VW*SCALE - tw)/2, (VH*SCALE)/3, fs, RED);
         }
 
+        // fruits picked debug
+        {
+            char fruitBuf[32];
+            snprintf(fruitBuf, sizeof(fruitBuf), "FRUITS: %d", gFruitsPickedCount);
+            DrawText(fruitBuf, 8, 90, 10, ORANGE);
+        }
+
 
         DrawFPS(8, 8);
     EndDrawing();
@@ -223,6 +238,11 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
         for (int i = 0; i < MAX_CROCS; ++i) {
             crocodile_update(&gCrocs[i], &mv);
         }
+    
+    if (player_pick_fruits(&gPlayer, gFruits, MAX_FRUITS))
+    {
+        gFruitsPickedCount++;
+    }
         
 
     } else {
@@ -400,6 +420,17 @@ bool game_consume_win_event(void) {
     if (!gRoundJustWon) return false;
     gRoundJustWon = false;
     crocodile_increase_speed();
+    return true;
+}
+
+bool game_consume_fruit_event(void) {
+    // One–shot event: only true once per pickup
+    if (!gPlayer.justPickedFruit) {
+        return false;
+    }
+
+    // Clear the event so it is not reported again next frame
+    gPlayer.justPickedFruit = false;
     return true;
 }
 

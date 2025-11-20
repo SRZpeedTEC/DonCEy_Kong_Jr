@@ -2,6 +2,7 @@
 #include "player.h"
 
 
+
 // reset all vine / jump / death flags for a fresh life
 void player_init(Player* p, int16_t x, int16_t y, int16_t w, int16_t h) {
     if (!p) return;
@@ -12,10 +13,25 @@ void player_init(Player* p, int16_t x, int16_t y, int16_t w, int16_t h) {
     p->onVine = false;
     p->jumpFramesLeft = 0;
     p->isDead = false;
+    p->justPickedFruit = false;
 
 }
 
+// simple AABB overlap helper used for fruit pickup
+static bool aabb_overlap_int(int ax, int ay, int aw, int ah,
+                             int bx, int by, int bw, int bh)
+{
+    int aRight  = ax + aw;
+    int aBottom = ay + ah;
+    int bRight  = bx + bw;
+    int bBottom = by + bh;
 
+    if (aRight  <= bx)      return false;
+    if (ax      >= bRight)  return false;
+    if (aBottom <= by)      return false;
+    if (ay      >= bBottom) return false;
+    return true;
+}
 
 
 // mark player as dead once
@@ -46,3 +62,4 @@ bool player_just_died(Player* p) {
     p->justDied = false; // consume the event
     return true;
 }
+

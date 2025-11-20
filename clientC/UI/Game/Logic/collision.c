@@ -1,5 +1,6 @@
 #include "collision.h"
 #include "constants.h"
+#include "fruit.h"
 #include "../static_map.h"
 
 // aabb overlap test between two rectangles
@@ -22,6 +23,7 @@ bool rects_overlap_i(int ax, int ay, int aw, int ah,
 typedef struct {
     int left, top, right, bottom, width, height;
 } IntRect;
+
 
 //build rect for current player position
 static IntRect player_rect(const Player* p) {
@@ -496,3 +498,38 @@ void collision_update_between_vines_state(Player* player,
     player->betweenVines = false;
     player->onVine       = false;
 }
+
+// pick any overlapping fruit: deactivate it and mark event in player
+bool player_pick_fruits(Player* player, Fruit* fruits, int count)
+{
+    if (!player || !fruits || count <= 0) return false;
+
+    // reset event for this frame
+    player->justPickedFruit = false;
+
+    // build player rect
+    IntRect pr = player_rect(player);
+
+    for (int i = 0; i < count; ++i) {
+        if (!fruits[i].active) continue;
+
+        IntRect fr;
+        fr.left   = fruits[i].x;
+        fr.top    = fruits[i].y;
+        fr.width  = fruits[i].w;
+        fr.height = fruits[i].h;
+        fr.right  = fr.left + fr.width;
+        fr.bottom = fr.top  + fr.height;
+
+        if (rects_overlap_i(pr.left, pr.top, pr.width, pr.height,
+                            fr.left, fr.top, fr.width, fr.height))
+        {
+            fruits[i].active = false;
+            player->justPickedFruit = true;
+            return true; // one fruit per frame is suficiente
+        }
+    }
+
+    return false;
+}
+

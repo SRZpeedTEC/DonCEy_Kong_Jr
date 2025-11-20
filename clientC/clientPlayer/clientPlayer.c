@@ -233,7 +233,7 @@ int run_player_client(const char* ip, uint16_t port)
         uint8_t entitiesBuf[512];
         size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
         if (entitiesLen > 0) {
-            fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
+            //fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen); for debug only
             (void)entitiesLen;
         }
         
