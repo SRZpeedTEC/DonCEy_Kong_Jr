@@ -148,6 +148,16 @@ int run_player_client(const char* ip, uint16_t port)
         return 1;
     }
 
+    {
+        uint8_t requestedRole = 1;  // 1 = PLAYER
+        if (net_write_n(socketFd, &requestedRole, 1) <= 0) {
+            fprintf(stderr, "Failed to send requested role (PLAYER)\n");
+            net_close(socketFd);
+            net_cleanup();
+            return 1;
+        }
+    }
+
     // Register handlers
     for (int i=0;i<256;i++) g_frameHandlers[i]=NULL;
     disp_register(CP_TYPE_INIT_STATIC,  on_init_static);
