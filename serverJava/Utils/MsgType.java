@@ -12,7 +12,7 @@ public final class MsgType {
         public static final byte FRUIT_SPAWN     = 0x40;   // server->client (spawn fruit)
         public static final byte REMOVE_FRUIT    = 0x41;  // server->client (remove fruit)
         public static final byte SPECTATOR_STATE = 0x50;   // server->spectator (player state update)
-
+        public static final byte SPECTATE_REQUEST = 0x51;  // client->server (spectator choose player)
 
         public static final byte NOTIFY_DEATH_COLLISION = 0x60; // server->client (notify death by collision)
         public static final byte NOTIFY_VICTORY = 0x61; // server->client (notify victory)

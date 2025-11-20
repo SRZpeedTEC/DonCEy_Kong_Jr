@@ -17,6 +17,7 @@ enum {
   CP_TYPE_SPAWN_FRUIT  = 0x40, // s -> c (spawn fruit at coords)
   CP_TYPE_REMOVE_FRUIT = 0x41,  // s -> c (remove fruit at coords)
   CP_TYPE_SPECTATOR_STATE = 0x50, // s -> spectator (player state update)
+  CP_TYPE_SPECTATE_REQUEST = 0x51, // c -> s (spectator choose player)
 
   CP_TYPE_NOTIFY_DEATH_COLLISION = 0x60, // s -> c (notify death by collision)
   CP_TYPE_NOTIFY_VICTORY       = 0x61,  // s -> c (notify victory)

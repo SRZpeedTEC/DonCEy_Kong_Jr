@@ -10,6 +10,7 @@ import Utils.MsgType;
 import Messages.OutboundMessage;
 import Messages.factories.CrocodileFactory;
 import Messages.factories.FruitFactory;
+import serverJava.ClientRole;
 
 
 public class Messenger {
@@ -115,6 +116,26 @@ public class Messenger {
                         payload.length);
 
         s.out().write(payload);
+        s.out().flush();
+    }
+
+    // --- CLIENT_ACK with role byte (1 = PLAYER, 2 = SPECTATOR) ---
+    public void sendClientAck(Session s, ClientRole role) throws IOException {
+        byte roleByte = (role == ClientRole.PLAYER) ? (byte)1 : (byte)2;
+
+        // payload: 1 byte with the role
+        int payloadLen = 1;
+
+        // Header: type = CLIENT_ACK, dest = this client, gameId = 0 (or whatever you use)
+        Proto.writeHeader(
+                s.out(),
+                MsgType.CLIENT_ACK,
+                s.clientId(),
+                0,
+                payloadLen
+        );
+
+        s.out().writeByte(roleByte);
         s.out().flush();
     }
 

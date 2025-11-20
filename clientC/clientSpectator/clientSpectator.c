@@ -80,7 +80,12 @@ static void disp_handle(uint8_t frameType, const uint8_t* payloadPtr, uint32_t p
     }
 }
 
-
+static int send_spectate_request(int socketFd, uint8_t slot) {
+    uint8_t buf[1];
+    buf[0] = slot;  // 1 o 2
+    // clientId y gameId los ponemos en 0; el server ya conoce el clientId real
+    return cp_send_frame(socketFd, CP_TYPE_SPECTATE_REQUEST, 0, 0, buf, sizeof(buf)) ? 1 : 0;
+}
 
 // ---- handlers ----
 static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
@@ -108,7 +113,7 @@ static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
     }
 }
 
-int run_spectator_client(const char* ip, uint16_t port) {
+int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
 
     if (!net_init()) {
         fprintf(stderr, "net_init failed\n");
@@ -132,20 +137,36 @@ int run_spectator_client(const char* ip, uint16_t port) {
     disp_register(CP_TYPE_SPECTATOR_STATE,  on_spectator_state);
 
     CP_Header header;
+    uint8_t roleByte = 0;
 
     // 2) Read CLIENT_ACK (s -> c)
     if (!cp_read_header(socketFd, &header) || header.type != CP_TYPE_CLIENT_ACK) {
         fprintf(stderr, "Expected CLIENT_ACK\n");
         goto done;
     }
-    if (header.payloadLen) {
+
+    if (header.payloadLen > 0) {
         uint8_t* tmp = (uint8_t*)malloc(header.payloadLen);
         if (!tmp) goto done;
+
         if (net_read_n(socketFd, tmp, header.payloadLen) <= 0) {
             free(tmp);
             goto done;
         }
+
+        roleByte = tmp[0];   // primer byte = rol
         free(tmp);
+    } else {
+        fprintf(stderr, "CLIENT_ACK without payload (role byte missing)\n");
+        goto done;
+    }
+
+    // Este ejecutable espera ser SPECTATOR (roleByte == 2)
+    if (roleByte != 2) {
+        fprintf(stderr,
+                "Server assigned role %u (expected SPECTATOR=2). Closing.\n",
+                (unsigned)roleByte);
+        goto done;
     }
 
     // 3) Read INIT_STATIC (static map, geometry, etc.)
@@ -163,6 +184,12 @@ int run_spectator_client(const char* ip, uint16_t port) {
         // Let the existing handler process it (calls cp_recv_init_static_payload, etc.)
         disp_handle(header.type, payloadBuf, header.payloadLen);
         free(payloadBuf);
+    }
+
+    // 3.5) Enviar al servidor qué player queremos espectear (slot 1 o 2)
+    if (!send_spectate_request(socketFd, desiredSlot)) {
+        fprintf(stderr, "Failed to send SPECTATE_REQUEST for slot %u\n", (unsigned)desiredSlot);
+        goto done;
     }
 
     // 4) Initialize game/window (copy this from clientPlayer.c)
