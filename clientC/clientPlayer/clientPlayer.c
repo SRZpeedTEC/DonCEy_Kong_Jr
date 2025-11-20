@@ -11,6 +11,7 @@
 #include "../UtilsC/tlv.h"
 
 
+
 // ---- dispatcher ----
 // ---- spawn entities from the server ----
 static void on_spawn_croc(const uint8_t *p, uint32_t n){
@@ -130,13 +131,10 @@ static int send_notify_victory(int socketFd, uint32_t clientId)
 }
 
 
-// ---- main ----
-int main(int argCount, char** argValues){
 
-    // Parses args
-    if (argCount<3){ fprintf(stderr,"Usage: %s <ip> <port>\n", argValues[0]); return 1; }
 
-int run_player_client(const char* ip, uint16_t port) {
+int run_player_client(const char* ip, uint16_t port)
+    {
 
     // Network init + connect
     if (!net_init()) {
@@ -235,7 +233,7 @@ int run_player_client(const char* ip, uint16_t port) {
         uint8_t entitiesBuf[512];
         size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
         if (entitiesLen > 0) {
-            //fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
+            fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
             (void)entitiesLen;
         }
         

@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "player.h"
 
 #define FRUIT_VARIANT_BANANA 1
 #define FRUIT_VARIANT_APPLE 2
@@ -23,4 +24,8 @@ void fruit_init(Fruit* fruit, int16_t defaultW, int16_t defaultH);
 
 // Activate fruit at given position.
 void fruit_spawn(Fruit* fruit, uint8_t variant, int16_t x, int16_t y);
+
+// Returns true if the player picked a fruit this frame.
+// Marks the fruit as inactive in the local array.
+bool fruit_player_pick(Player* player, Fruit* fruits, int count);
 
