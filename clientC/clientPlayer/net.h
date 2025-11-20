@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+extern int socketFd;
 
 long net_peek(int sock);
 

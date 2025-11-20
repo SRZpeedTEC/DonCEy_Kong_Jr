@@ -108,36 +108,28 @@ static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
     }
 }
 
-
-
-int main(int argc, char** argv) {
-
-    if (argc < 3) {
-        fprintf(stderr, "Usage: %s <ip> <port>\n", argv[0]);
-        return 1;
-    }
+int run_spectator_client(const char* ip, uint16_t port) {
 
     if (!net_init()) {
         fprintf(stderr, "net_init failed\n");
         return 1;
     }
 
-    int socketFd = net_connect(argv[1], (uint16_t)atoi(argv[2]));
+    int socketFd = net_connect(ip, port);
     if (socketFd < 0) {
         fprintf(stderr, "net_connect failed\n");
         net_cleanup();
         return 1;
     }
 
-    // 1) Register handlers — same types as in clientPlayer.c
+    // Register handlers
     for (int i = 0; i < 256; ++i) g_frameHandlers[i] = NULL;
-
-    disp_register(CP_TYPE_INIT_STATIC,  on_init_static);
-    disp_register(CP_TYPE_STATE_BUNDLE, on_state_bundle);
-    disp_register(CP_TYPE_SPAWN_CROC,   on_spawn_croc);
-    disp_register(CP_TYPE_SPAWN_FRUIT,  on_spawn_fruit);
-    disp_register(CP_TYPE_REMOVE_FRUIT, on_remove_fruit);
-    disp_register(CP_TYPE_SPECTATOR_STATE, on_spectator_state);
+    disp_register(CP_TYPE_INIT_STATIC,      on_init_static);
+    disp_register(CP_TYPE_STATE_BUNDLE,     on_state_bundle);
+    disp_register(CP_TYPE_SPAWN_CROC,       on_spawn_croc);
+    disp_register(CP_TYPE_SPAWN_FRUIT,      on_spawn_fruit);
+    disp_register(CP_TYPE_REMOVE_FRUIT,     on_remove_fruit);
+    disp_register(CP_TYPE_SPECTATOR_STATE,  on_spectator_state);
 
     CP_Header header;
 
@@ -216,3 +208,4 @@ done:
     net_cleanup();
     return 0;
 }
+

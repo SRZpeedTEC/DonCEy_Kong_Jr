@@ -11,6 +11,7 @@
 #include "../UtilsC/tlv.h"
 
 
+
 // ---- dispatcher ----
 // ---- spawn entities from the server ----
 static void on_spawn_croc(const uint8_t *p, uint32_t n){
@@ -92,12 +93,12 @@ static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
 // --- handlers de órdenes del server ---
 static void on_respawn_death(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    game_respawn_death();  
+    game_respawn_death();
 }
 
 static void on_respawn_win(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    game_respawn_win();    
+    game_respawn_win();
 }
 
 static void on_game_over(const uint8_t* p, uint32_t n){
@@ -130,19 +131,22 @@ static int send_notify_victory(int socketFd, uint32_t clientId)
 }
 
 
-// ---- main ----
-int main(int argCount, char** argValues){
 
-    // Parses args
-    if (argCount<3){ fprintf(stderr,"Usage: %s <ip> <port>\n", argValues[0]); return 1; }
 
+int run_player_client(const char* ip, uint16_t port)
+    {
 
     // Network init + connect
-    if (!net_init()){ fprintf(stderr,"Net init fail\n"); return 1; }
+    if (!net_init()) {
+        fprintf(stderr, "Net init fail\n");
+        return 1;
+    }
 
-    int socketFd = net_connect(argValues[1], (uint16_t)atoi(argValues[2])); // socket TCP
-    if (socketFd < 0){ net_cleanup(); return 1; }
-
+    int socketFd = net_connect(ip, port); // socket TCP
+    if (socketFd < 0) {
+        net_cleanup();
+        return 1;
+    }
 
     // Register handlers
     for (int i=0;i<256;i++) g_frameHandlers[i]=NULL;
@@ -215,7 +219,7 @@ int main(int argCount, char** argValues){
 
         ProposedState proposedState;
         game_update_and_get_proposal(cp_get_static(), &proposedState);
-        
+
         if (game_consume_death_event()) {
             send_notify_death_collision(socketFd, clientId);
         }
@@ -229,7 +233,7 @@ int main(int argCount, char** argValues){
         uint8_t entitiesBuf[512];
         size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
         if (entitiesLen > 0) {
-            //fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
+            fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen);
             (void)entitiesLen;
         }
         
