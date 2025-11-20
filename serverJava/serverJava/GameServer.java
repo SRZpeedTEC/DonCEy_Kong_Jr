@@ -361,36 +361,51 @@ public class GameServer {
     }
 
     // Called by ClientHandler when a client disconnects
-    public void removeClient(int id) {
-        ClientHandler h = clients.remove(id);
-        if (h == null) return;
+    public synchronized void removeClient(int clientId) {
+        ClientHandler handler = clients.remove(clientId);
+        if (handler == null) {
+            return; // ya no existe
+        }
 
-        ClientRole role = h.getRole();
+        System.out.println("Client " + clientId + " disconnected");
 
-        if (role == ClientRole.PLAYER) {
-            // Remove player and all its spectators
-            players.remove(id);
-            playerStates.remove(id);
-            List<ClientHandler> specs = spectatorsByPlayer.remove(id);
+        if (handler.getRole() == ClientRole.PLAYER) {
+            // 1) Quitar de mapa de players
+            players.remove(clientId);
+
+            // 2) Liberar slot si este player ocupaba uno
+            if (Objects.equals(playerSlot1, clientId)) {
+                playerSlot1 = null;
+                System.out.println("Freed player slot 1");
+            }
+            if (Objects.equals(playerSlot2, clientId)) {
+                playerSlot2 = null;
+                System.out.println("Freed player slot 2");
+            }
+
+            // 3) Quitar y/o desenganchar espectadores de este player
+            var specs = spectatorsByPlayer.remove(clientId);
             if (specs != null) {
-                System.out.println("Player " + id + " disconnected; removed " + specs.size() + " spectators");
-            } else {
-                System.out.println("Player " + id + " disconnected; no spectators");
+                for (ClientHandler s : specs) {
+                    System.out.println("Detaching spectator " + s.getClientId()
+                            + " from player " + clientId);
+                    try {
+                        s.setObservedPlayerId(null);
+                    } catch (Exception ignore) {}
+                }
             }
 
         } else { // SPECTATOR
-            Integer observedPid = h.getObservedPlayerId();
-            if (observedPid != null) {
-                List<ClientHandler> specs = spectatorsByPlayer.get(observedPid);
-                if (specs != null) specs.remove(h);
-                System.out.println("Spectator " + id + " disconnected from player " + observedPid);
-            } else {
-                System.out.println("Spectator " + id + " disconnected (no player assigned)");
+            // Quitar este spectator de cualquier lista de spectators
+            for (var entry : spectatorsByPlayer.entrySet()) {
+                List<ClientHandler> list = entry.getValue();
+                if (list != null) {
+                    list.remove(handler);
+                }
             }
         }
-
-        System.out.println("Client " + id + " disconnected.");
     }
+
 
     private void sendToPlayerGroup(int playerId, Consumer<ClientHandler> action) {
     // jugador principal
