@@ -39,6 +39,7 @@ public class GameServer {
     public final List<Rect> crocodiles    = new ArrayList<>();
     public final List<Rect> fruits     = new ArrayList<>();
 
+
     private Integer playerSlot1 = null;
     private Integer playerSlot2 = null;
 
@@ -178,7 +179,41 @@ public class GameServer {
         }
     }
 
-    public synchronized boolean attachSpectatorToSlot(ClientHandler spectator, int slotIndex) {
+
+    private Integer choosePlayerForSpectator() {
+        Integer best = null;
+        int bestCount = Integer.MAX_VALUE;
+
+        for (Map.Entry<Integer, ClientHandler> e : players.entrySet()) {
+            int pid = e.getKey();
+            List<ClientHandler> specs = spectatorsByPlayer.get(pid);
+            int count = (specs == null) ? 0 : specs.size();
+            if (count < 2 && count < bestCount) {
+                bestCount = count;
+                best = pid;
+            }
+        }
+        return best;
+    }
+
+    public player getPlayerFromServer(int clientId) {
+        return playerStates.computeIfAbsent(clientId, id -> {
+                player p = new player(0, 0);
+                p.setLives(3);
+                p.setScore(0);
+                return p;
+        });
+    }
+
+    public synchronized boolean attachSpectatorToSlot(int spectatorClientId, int slotIndex) {
+        ClientHandler spectator = clients.get(spectatorClientId);
+        if (spectator == null) {
+            return false; // el cliente ya no existe
+        }
+        if (spectator.getRole() != ClientRole.SPECTATOR) {
+            return false; // solo espectadores pueden adjuntarse
+        }
+
         Integer targetPlayerId = null;
         if (slotIndex == 1) {
             targetPlayerId = playerSlot1;
@@ -189,57 +224,16 @@ public class GameServer {
         }
 
         if (targetPlayerId == null) {
-            // no hay player en ese slot
+            // no hay player en ese slot aún
             return false;
         }
 
-        var specs = spectatorsByPlayer
+        List<ClientHandler> specs = spectatorsByPlayer
                 .computeIfAbsent(targetPlayerId,
                         k -> Collections.synchronizedList(new ArrayList<>()));
 
         if (specs.size() >= 2) {
             // ya tiene 2 espectadores
-            return false;
-        }
-
-        specs.add(spectator);
-        spectator.setObservedPlayerId(targetPlayerId);
-        System.out.println("Spectator " + spectator.getClientId()
-                + " attached to player " + targetPlayerId
-                + " (slot " + slotIndex + ")");
-        return true;
-    }
-
-    
-    public synchronized boolean attachSpectatorToSlot(int spectatorClientId, int slotIndex) {
-        ClientHandler spectator = clients.get(spectatorClientId);
-        if (spectator == null) {
-            return false; // client disappeared
-        }
-        if (spectator.getRole() != ClientRole.SPECTATOR) {
-            return false; // only spectators can attach
-        }
-
-        Integer targetPlayerId = null;
-        if (slotIndex == 1) {
-            targetPlayerId = playerSlot1;
-        } else if (slotIndex == 2) {
-            targetPlayerId = playerSlot2;
-        } else {
-            return false; // invalid slot
-        }
-
-        if (targetPlayerId == null) {
-            // no player in that slot yet
-            return false;
-        }
-
-        var specs = spectatorsByPlayer
-                .computeIfAbsent(targetPlayerId,
-                        k -> Collections.synchronizedList(new ArrayList<>()));
-
-        if (specs.size() >= 2) {
-            // already 2 spectators for that player
             return false;
         }
 
@@ -252,35 +246,6 @@ public class GameServer {
         return true;
     }
 
-
-
-    private Integer choosePlayerForSpectator() {
-        Integer bestPlayerId = null;
-        int minSpecs = Integer.MAX_VALUE;
-
-        for (Map.Entry<Integer, ClientHandler> entry : players.entrySet()) {
-            Integer pid = entry.getKey();
-            List<ClientHandler> specs =
-                spectatorsByPlayer.getOrDefault(pid,
-                    Collections.synchronizedList(new ArrayList<>()));
-
-            if (specs.size() < 2 && specs.size() < minSpecs) {
-                minSpecs = specs.size();
-                bestPlayerId = pid;
-            }
-        }
-
-        return bestPlayerId;  // null if all have >=2 spectators
-    }
-
-    public player getPlayerFromServer(int clientId) {
-       return playerStates.computeIfAbsent(clientId, id -> {
-        player p = new player(0, 0); 
-        p.setLives(3);  
-        p.setScore(0);
-        return p;
-    });
-    }
 
 
     public void start() throws IOException {
@@ -303,55 +268,96 @@ public class GameServer {
 
             int clientId = idGen.getAndIncrement();
 
-            ClientRole role;
+            // 1) Leer el rol solicitado: 1 = PLAYER, 2 = SPECTATOR
+            int requestedRoleRaw;
+            try {
+                requestedRoleRaw = socket.getInputStream().read();
+            } catch (IOException e) {
+                System.out.println("Failed to read requested role from client: " + e.getMessage());
+                try { socket.close(); } catch (IOException ignore) {}
+                continue;
+            }
+            if (requestedRoleRaw == -1) {
+                System.out.println("Client disconnected before sending requested role");
+                try { socket.close(); } catch (IOException ignore) {}
+                continue;
+            }
+
+            boolean wantsPlayer    = (requestedRoleRaw == 1);
+            boolean wantsSpectator = (requestedRoleRaw == 2);
+
+            if (!wantsPlayer && !wantsSpectator) {
+                System.out.println("Client " + clientId + " sent invalid requested role: " + requestedRoleRaw);
+                try { socket.close(); } catch (IOException ignore) {}
+                continue;
+            }
+
+            ClientRole role = null;
             Integer observedPlayerId = null;
-            
+
             synchronized (this) {
-                Integer freeSlot = null;
-
-                if (playerSlot1 == null) {
-                    freeSlot = 1;
-                } else if (playerSlot2 == null) {
-                    freeSlot = 2;
-                }
-
-                if (freeSlot != null) {
-                    // There is an empty player slot → this client becomes PLAYER
-                    role = ClientRole.PLAYER;
-                    observedPlayerId = null;
-
-                    if (freeSlot == 1) {
-                        playerSlot1 = clientId;
-                    } else {
-                        playerSlot2 = clientId;
+                if (wantsPlayer) {
+                    // CLIENTE PIDE SER PLAYER
+                    Integer freeSlot = null;
+                    if (playerSlot1 == null) {
+                        freeSlot = 1;
+                    } else if (playerSlot2 == null) {
+                        freeSlot = 2;
                     }
 
-                    System.out.println("Client " + clientId
-                            + " registered as PLAYER in slot " + freeSlot);
-                } else {
-                    // No free player slot → this client MUST be SPECTATOR
-                    role = ClientRole.SPECTATOR;
-                    observedPlayerId = null;
-                    System.out.println("Client " + clientId
-                            + " registered as SPECTATOR (pending selection)");
+                    if (freeSlot != null) {
+                        role = ClientRole.PLAYER;
+                        observedPlayerId = null;
+
+                        if (freeSlot == 1) {
+                            playerSlot1 = clientId;
+                        } else {
+                            playerSlot2 = clientId;
+                        }
+
+                        System.out.println("Client " + clientId
+                                + " requested PLAYER -> assigned PLAYER in slot " + freeSlot);
+                    } else {
+                        // no hay slot de player libre
+                        System.out.println("Client " + clientId
+                                + " requested PLAYER but no slot free. Closing.");
+                    }
+                } else if (wantsSpectator) {
+                    // CLIENTE PIDE SER SPECTATOR
+                    if (players.isEmpty()) {
+                        // Regla: debe existir al menos un player para aceptar spectators
+                        System.out.println("Client " + clientId
+                                + " requested SPECTATOR but no players connected. Closing.");
+                    } else {
+                        role = ClientRole.SPECTATOR;
+                        observedPlayerId = null;
+                        System.out.println("Client " + clientId
+                                + " requested SPECTATOR -> assigned SPECTATOR (pending selection)");
+                    }
                 }
+            }
+
+            if (role == null) {
+                // No se pudo asignar rol (sin slots o sin players para espectear)
+                try { socket.close(); } catch (IOException ignore) {}
+                continue;
             }
 
             ClientHandler handler = new ClientHandler(clientId, socket, this, role, observedPlayerId);
             clients.put(clientId, handler);
 
-            // If it’s a player, register in players map and ensure list for spectators exists
             if (role == ClientRole.PLAYER) {
                 players.put(clientId, handler);
-                spectatorsByPlayer.putIfAbsent(clientId, Collections.synchronizedList(new ArrayList<>()));
+                spectatorsByPlayer.putIfAbsent(clientId,
+                        Collections.synchronizedList(new ArrayList<>()));
             } else {
-                // SPECTATOR: todavía no sabemos a qué player va a ver,
-                // se registrará cuando llegue SPECTATE_REQUEST
+                // SPECTATOR: se adjunta a un player cuando llega SPECTATE_REQUEST
             }
 
             handler.start();
             System.out.println("Client connected, id=" + clientId + " from " + socket.getRemoteSocketAddress());
         }
+
     }
 
     // Called by ClientHandler when a client disconnects
