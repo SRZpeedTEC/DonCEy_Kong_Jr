@@ -127,37 +127,67 @@ public class ServerGui {
     }
 
     private void doSend(){
-        Integer clientId = (Integer) clientCombo.getSelectedItem();
-        if (clientId == null) { msg("No client selected"); return; }
-        if (selectedTarget == Target.NONE || selectedIndex < 0) { msg("Select a Vine/Platform first"); return; }
+        Integer slotIndex = (Integer) clientCombo.getSelectedItem();
+        if (slotIndex == null) {
+            msg("No player selected");
+            return;
+        }
+        if (selectedTarget == Target.NONE || selectedIndex < 0) {
+            msg("Select a Vine/Platform first");
+            return;
+        }
 
-        byte variant = resolveVariantCode();
+        // Traducir slot -> clientId real del jugador
+        Integer playerClientId = server.getPlayerClientIdForSlot(slotIndex);
+        if (playerClientId == null) {
+            msg("No player connected in slot " + slotIndex);
+            return;
+        }
+
+        byte variant = resolveVariantCode();          // esto ya lo tienes
         int pos = (Integer) posCombo.getSelectedItem(); // 1..5
 
         switch (selectedTarget){
             case VINE -> {
-                if (crocRadio.isSelected()) server.spawnCrocOnVineForClient(clientId, selectedIndex, variant, pos);
-                else                        server.spawnFruitOnVineForClient(clientId, selectedIndex, variant, pos);
+                if (crocRadio.isSelected())
+                    server.spawnCrocOnVineForClient(playerClientId, selectedIndex, variant, pos);
+                else
+                    server.spawnFruitOnVineForClient(playerClientId, selectedIndex, variant, pos);
             }
             case PLATFORM -> {
-                if (crocRadio.isSelected()) server.spawnCrocOnPlatformForClient(clientId, selectedIndex, variant, pos);
-                else                        server.spawnFruitOnPlatformForClient(clientId, selectedIndex, variant, pos);
+                if (crocRadio.isSelected())
+                    server.spawnCrocOnPlatformForClient(playerClientId, selectedIndex, variant, pos);
+                else
+                    server.spawnFruitOnPlatformForClient(playerClientId, selectedIndex, variant, pos);
             }
             default -> {}
         }
     }
 
+
     private void doDeleteFruit(){
-        Integer clientId = (Integer) clientCombo.getSelectedItem();
-        if (clientId == null) { msg("No client selected"); return; }
-        if (selectedTarget == Target.NONE || selectedIndex < 0) { msg("Select a Vine/Platform first"); return; }
+        Integer slotIndex = (Integer) clientCombo.getSelectedItem();
+        if (slotIndex == null) {
+            msg("No player selected");
+            return;
+        }
+        if (selectedTarget == Target.NONE || selectedIndex < 0) {
+            msg("Select a Vine/Platform first");
+            return;
+        }
+
+        Integer playerClientId = server.getPlayerClientIdForSlot(slotIndex);
+        if (playerClientId == null) {
+            msg("No player connected in slot " + slotIndex);
+            return;
+        }
 
         int pos = (Integer) posCombo.getSelectedItem(); // 1..5
 
         switch (selectedTarget){
-            case VINE     -> server.removeFruitOnVineForClient(clientId, selectedIndex, pos);
-            case PLATFORM -> server.removeFruitOnPlatformForClient(clientId, selectedIndex, pos);
-            default -> {}
+            case VINE     -> server.removeFruitOnVineForClient(playerClientId, selectedIndex, pos);
+            case PLATFORM -> server.removeFruitOnPlatformForClient(playerClientId, selectedIndex, pos);
+            default       -> {}
         }
     }
 
@@ -188,10 +218,21 @@ public class ServerGui {
             return (byte)0;
         }
     }
+
     private void refreshClients(){
         clientCombo.removeAllItems();
-        for (Integer id : server.getClientIdsSnapshot()) clientCombo.addItem(id);
+
+        // Slot 1 (Player 1)
+        if (server.getPlayerClientIdForSlot(1) != null) {
+            clientCombo.addItem(1);   // representa "Player 1"
+        }
+
+        // Slot 2 (Player 2)
+        if (server.getPlayerClientIdForSlot(2) != null) {
+            clientCombo.addItem(2);   // representa "Player 2"
+        }
     }
+
     private void msg(String m){ JOptionPane.showMessageDialog(frame, m); }
 
     public void show(){ frame.setVisible(true); }

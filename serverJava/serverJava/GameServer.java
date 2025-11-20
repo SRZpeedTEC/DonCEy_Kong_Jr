@@ -406,6 +406,14 @@ public class GameServer {
         }
     }
 
+    public Integer getPlayerClientIdForSlot(int slotIndex) {
+        return switch (slotIndex) {
+            case 1 -> playerSlot1;
+            case 2 -> playerSlot2;
+            default -> null;
+        };
+    }
+
 
     private void sendToPlayerGroup(int playerId, Consumer<ClientHandler> action) {
     // jugador principal
