@@ -41,6 +41,10 @@ static int gFruitsPickedCount = 0;
 static bool gRoundWon = false;
 static bool gRoundJustWon = false;
 static bool gGameOver = false;
+static uint8_t  gUiLives  = 0;
+static uint32_t gUiScore  = 0;
+
+
 
 // check if player rect contains the win point (109, 48)
 static void game_check_win_condition(void) {
@@ -70,6 +74,9 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     VW = (int)vw; VH = (int)vh; SCALE = (int)scale;
     InitWindow(VW * SCALE, VH * SCALE, "Client");
     SetTargetFPS(60);
+    gUiLives = 3; 
+    gUiScore = 0;
+
 
     rt = LoadRenderTexture(VW, VH);
     SetTextureFilter(rt.texture, TEXTURE_FILTER_POINT); // crisp pixel-art
@@ -196,8 +203,13 @@ void game_draw_static(const CP_Static* staticMap) {
             DrawText(fruitBuf, 8, 90, 10, ORANGE);
         }
 
+        {
+            char hud[64];
+            snprintf(hud, sizeof(hud), "LIVES: %u   SCORE: %u", (unsigned)gUiLives, (unsigned)gUiScore);
+            DrawText(hud, 8, 8, 12, WHITE);
+        }
 
-        DrawFPS(8, 8);
+       
     EndDrawing();
 }
 
@@ -225,10 +237,11 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     game_check_win_condition();
 
 
-    if (crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS))
-    {
-        gPlayer.isDead = true;
+    if (crocodile_player_overlap(&gPlayer, gCrocs, MAX_CROCS)) {
+        player_mark_dead(&gPlayer);  // unificado
     }
+
+    
 
 
     // run physics only if player is alive
@@ -264,10 +277,9 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // bit 1 -> just died this frame (one–shot event)
     uint8_t flags = 0;
     if (gPlayer.grounded) flags |= 0x01;
-    if (gPlayer.isDead)         flags |= 0x02;
+    if (gPlayer.justDied) flags |= 0x02;  // lee el campo, NO llames player_just_died aquí
     out->flags = flags;
 
-    (void)staticMap; 
 }
 
 // returns the total size written to dst, or 0 if dst is NULL / too small.
@@ -354,7 +366,8 @@ void game_apply_remote_state(int16_t x, int16_t y, int16_t vx, int16_t vy, uint8
 
     if (flags & 0x02) {
         
-        gPlayer.isDead = true;
+        player_mark_dead(&gPlayer);
+
     }
 }
 
@@ -411,10 +424,10 @@ void game_remove_fruit_at(int16_t x, int16_t y){
 }
 
 bool game_consume_death_event(void) {
-    if (!gPlayer.isDead) return false;
-    gPlayer.isDead = false;
-    return true;
+    return player_just_died(&gPlayer); 
 }
+
+
 
 bool game_consume_win_event(void) {
     if (!gRoundJustWon) return false;
@@ -451,6 +464,11 @@ static void game_reset_entities(void) {
         gFruits[i].active = false;
     }
 }
+
+void game_set_ui_lives(uint8_t lives)  { gUiLives = lives; }
+
+void game_set_ui_score(uint32_t score) { gUiScore = score; }
+
 
 // respawn after a death: reset player and entities, keep croc speed
 void game_respawn_death(void) {

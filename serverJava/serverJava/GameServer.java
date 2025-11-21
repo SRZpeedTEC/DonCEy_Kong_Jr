@@ -39,6 +39,9 @@ public class GameServer {
     public final List<Rect> crocodiles    = new ArrayList<>();
     public final List<Rect> fruits     = new ArrayList<>();
 
+    static final int CROC_W  = 8;
+    static final int FRUIT_W = 8;
+
 
     private Integer playerSlot1 = null;
     private Integer playerSlot2 = null;
@@ -442,13 +445,13 @@ public class GameServer {
 
     public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
-        int x = v.x() + v.w()/2;
+        int x = centerXOn(v, CROC_W);
         int y = quantizeCenterY(v, pos);
         sendToPlayerGroup(clientId, h -> h.sendSpawnCroc(variant, x, y));
     }
     public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
-        int x = v.x() + v.w()/2;
+        int x = centerXOn(v, FRUIT_W);
         int y = quantizeCenterY(v, pos);
         sendToPlayerGroup(clientId, h -> h.sendSpawnFruit(variant, x, y));
     }
@@ -466,7 +469,7 @@ public class GameServer {
     }
     public void removeFruitOnVineForClient(int clientId, int vineIndex, int pos){
         Rect v = vines.get(vineIndex);
-        int x = v.x() + v.w()/2;
+        int x = centerXOn(v, FRUIT_W);
         int y = quantizeCenterY(v, pos);
         sendToPlayerGroup(clientId, h -> h.sendRemoveFruit(x, y));
     }
@@ -488,6 +491,11 @@ public class GameServer {
     private static int quantizeCenterX(Rect r, int pos /*1..5*/){
         double s = r.w() / (double)N_FIXED;
         return r.x() + (int)Math.round((pos - 0.5) * s);
+    }
+
+    static int centerXOn(Rect vine, int entityW) {
+        // centro en X de la liana menos mitad del ancho de la entidad
+        return vine.x() + (vine.w() - entityW) / 2;
     }
 
 

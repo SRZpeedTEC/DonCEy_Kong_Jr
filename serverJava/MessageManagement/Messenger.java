@@ -81,6 +81,20 @@ public class Messenger {
         session.out().flush();
     }
 
+    public void sendLivesUpdate(Session s, byte lives) throws IOException {
+        DataOutputStream out = s.out();
+        Proto.writeHeader(out, MsgType.LIVES_UPDATE, s.clientId(), 0, 1);
+        out.writeByte(lives);
+        out.flush();
+    }
+
+    public void sendScoreUpdate(Session s, int score) throws IOException {
+        DataOutputStream out = s.out();
+        Proto.writeHeader(out, MsgType.SCORE_UPDATE, s.clientId(), 0, 4);
+        out.writeInt(score);
+        out.flush();
+    }
+
     public void sendGameOver(Session session) throws IOException {
         Proto.writeHeader(session.out(), MsgType.PLAYER_GAME_OVER, session.clientId(), 0, 0);
         session.out().flush();
@@ -91,10 +105,8 @@ public class Messenger {
         session.out().flush();
     }
 
-    public void sendSpectatorState(Session s,
-                                short x, short y,
-                                short vx, short vy,
-                                byte flags) throws IOException {
+    public void sendSpectatorState(Session s, short x, short y, short vx, short vy, byte flags) throws IOException 
+    {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);

@@ -36,7 +36,13 @@ bool game_consume_death_event(void);
 
 bool game_consume_win_event(void);
 
+bool game_consume_fruit_event(void);
+
 void game_over_event(void);
+
+void game_set_ui_lives(uint8_t lives);
+
+void game_set_ui_score(uint32_t score);
 
 // Increase global crocodile speed.
 void crocodile_increase_speed(void);

@@ -16,10 +16,14 @@ public final class MsgType {
 
         public static final byte NOTIFY_DEATH_COLLISION = 0x60; // server->client (notify death by collision)
         public static final byte NOTIFY_VICTORY = 0x61; // server->client (notify victory)
+        public static final byte NOTIFY_FRUIT_PICK = 0x62; // server->client (notify fruit pick)
 
 
         public static final byte PLAYER_RESPAWN  = 0x70;   // server->client (respawn player)
         public static final byte PLAYER_GAME_OVER  = 0x71;   // server->client (game over for player)
         public static final byte RESPAWN_VICTORY = 0x72; // server->client (increase enemy speed)
+        public static final byte LIVES_UPDATE    = 0x73; // server->client (update lives)
+        public static final byte SCORE_UPDATE    = 0x74; // server->client (update score)
+        
         private MsgType(){}
     }

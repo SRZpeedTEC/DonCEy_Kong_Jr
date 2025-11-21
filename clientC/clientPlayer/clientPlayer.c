@@ -48,6 +48,8 @@ static void on_remove_fruit(const uint8_t* p, uint32_t n){
 
 
 
+
+
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
 static FrameHandler g_frameHandlers[256];
 static void disp_register(uint8_t frameType, FrameHandler handlerFn)
@@ -61,6 +63,8 @@ static void disp_handle(uint8_t frameType, const uint8_t* payloadPtr, uint32_t p
         g_frameHandlers[frameType](payloadPtr,payloadLen); 
     }
 }
+
+
 
 
 
@@ -107,6 +111,21 @@ static void on_game_over(const uint8_t* p, uint32_t n){
 }
 
 
+
+static void on_lives_update(const uint8_t* p, uint32_t n){
+    if (n >= 1) game_set_ui_lives(p[0]);
+}
+
+static void on_score_update(const uint8_t* p, uint32_t n){
+    if (n >= 4){
+        uint32_t sc = ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)|((uint32_t)p[2]<<8)|p[3];
+        game_set_ui_score(sc);
+    }
+}
+
+
+
+
 // ---- envío de propuesta (cliente -> server) ----
 static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
 {
@@ -128,6 +147,10 @@ static int send_notify_death_collision(int socketFd, uint32_t clientId)
 static int send_notify_victory(int socketFd, uint32_t clientId)
 {
     return cp_send_frame(socketFd, CP_TYPE_NOTIFY_VICTORY, clientId, 0, NULL, 0) ? 1 : 0;
+}
+
+static int send_notify_fruit_pick(int socketFd, uint32_t clientId){
+    return cp_send_frame(socketFd, CP_TYPE_NOTIFY_FRUIT_PICK, clientId, 0, NULL, 0) ? 1 : 0;
 }
 
 
@@ -168,6 +191,8 @@ int run_player_client(const char* ip, uint16_t port)
     disp_register(CP_TYPE_RESPAWN_DEATH_COLLISION, on_respawn_death);
     disp_register(CP_TYPE_RESPAWN_WIN, on_respawn_win);
     disp_register(CP_TYPE_GAME_OVER, on_game_over);
+    disp_register(CP_TYPE_LIVES_UPDATE, on_lives_update);
+    disp_register(CP_TYPE_SCORE_UPDATE, on_score_update);
 
 
 
@@ -257,6 +282,10 @@ int run_player_client(const char* ip, uint16_t port)
         }
         if (game_consume_win_event()) {
             send_notify_victory(socketFd, clientId);
+        }
+
+        if (game_consume_fruit_event()) {
+            send_notify_fruit_pick(socketFd, clientId);
         }
 
         send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);

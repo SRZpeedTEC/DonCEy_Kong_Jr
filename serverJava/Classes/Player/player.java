@@ -14,7 +14,7 @@ public class player {
 
     }
 
-    public void decreaseLife(){
+    public void decreaseLives(){
         this.lives--;
         if(this.lives <= 0){
             this.isDead = true;
@@ -25,12 +25,16 @@ public class player {
         this.score += points;
     }
 
-    public void increaseLife(){
+    public void increaseLives(){ // Metodo para aumentar vidas
         this.lives++;
     }
 
     public int getLives(){
         return this.lives;
+    }
+
+    public int getScore(){
+        return this.score;
     }
 
     public void setLives(int lives){

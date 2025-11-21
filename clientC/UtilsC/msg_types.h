@@ -21,10 +21,13 @@ enum {
 
   CP_TYPE_NOTIFY_DEATH_COLLISION = 0x60, // s -> c (notify death by collision)
   CP_TYPE_NOTIFY_VICTORY       = 0x61,  // s -> c (notify victory)
+  CP_TYPE_NOTIFY_FRUIT_PICK    = 0x62,  // s -> c (notify fruit pick)
 
   CP_TYPE_RESPAWN_DEATH_COLLISION = 0x70, // c -> s (request respawn after death by collision)
   CP_TYPE_GAME_OVER = 0x71,
-  CP_TYPE_RESPAWN_WIN       = 0x72  // c -> s (request respawn after victory)
+  CP_TYPE_RESPAWN_WIN       = 0x72,  // c -> s (request respawn after victory)
+  CP_TYPE_LIVES_UPDATE            = 0x73,  // s -> c  
+  CP_TYPE_SCORE_UPDATE            = 0x74   // s -> c  
 };
 
 // TLVs (dentro de STATE_BUNDLE)

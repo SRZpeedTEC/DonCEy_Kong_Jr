@@ -87,7 +87,9 @@ public class AnswerProcessor {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
-            if (p.getLives() > 0) p.setLives(p.getLives() - 1);
+            if (p.getLives() > 0) p.decreaseLives();
+
+            messenger.sendLivesUpdate(sess, (byte)p.getLives());
 
             if (p.getLives() > 0) {
                 messenger.sendRespawnDeath(sess);   // -> CP_TYPE_RESPAWN_DEATH_COLLISION
@@ -97,13 +99,27 @@ public class AnswerProcessor {
             return;
         }
 
+        if (type == MsgType.NOTIFY_FRUIT_PICK) {
+            player p = server.getPlayerFromServer(sess.clientId());
+            if (p == null) return;
+
+            p.increaseScore(400); // Aumenta la puntuación en 10 (o el valor que desees)
+
+            messenger.sendScoreUpdate(sess, p.getScore()); // Envía la actualización de puntuación al cliente
+            return;
+        }
+
         // --- NOTIFY_VICTORY ---
         if (type == MsgType.NOTIFY_VICTORY) {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
-            p.increaseLife();               // +1 vida
+            p.increaseLives();              // +1 vida
+            System.out.println("Player " + sess.clientId() + " won! Lives now: " + p.getLives());
+
+            messenger.sendLivesUpdate(sess, (byte)p.getLives());
             messenger.sendRespawnWin(sess); // -> CP_TYPE_RESPAWN_WIN
+
             return;
         }
 
