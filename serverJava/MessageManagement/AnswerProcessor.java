@@ -1,7 +1,6 @@
 package MessageManagement;
 
 import java.io.*;
-import java.util.*;
 import serverJava.GameServer;
 import Utils.MsgType;
 import Classes.Player.player;
@@ -92,7 +91,7 @@ public class AnswerProcessor {
             messenger.sendLivesUpdate(sess, (byte)p.getLives());
 
             if (p.getLives() > 0) {
-                messenger.sendRespawnDeath(sess);   // -> CP_TYPE_RESPAWN_DEATH_COLLISION
+                server.broadcastRespawnDeathToGroup(sess.clientId()); // -> CP_TYPE_RESPAWN_DEATH_COLLISION
             } else {
                 messenger.sendGameOver(sess);       // -> CP_TYPE_GAME_OVER
             }

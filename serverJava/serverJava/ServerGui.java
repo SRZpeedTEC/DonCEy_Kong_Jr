@@ -1,8 +1,6 @@
 package serverJava;
 
 import Utils.Rect;
-import Utils.CrocVariant;
-import Utils.FruitVariant;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
