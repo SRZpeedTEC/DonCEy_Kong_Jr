@@ -105,12 +105,30 @@ public class AnswerProcessor {
         }
 
         if (type == MsgType.NOTIFY_FRUIT_PICK) {
+            // Expect payload: 2 bytes x, 2 bytes y (coordinates of picked fruit)
+            if (len < 4) return;
+            
+            byte[] payload = in.readNBytes(len);
+            
+            // Java uses int, not int16_t (that's C syntax)
+            int fruitX = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
+            int fruitY = ((payload[2] & 0xFF) << 8) | (payload[3] & 0xFF);
+            
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
-            p.increaseScore(400); // Aumenta la puntuación en 10 (o el valor que desees)
-
-            messenger.sendScoreUpdate(sess, p.getScore()); // Envía la actualización de puntuación al cliente
+            p.increaseScore(400);
+            
+            // Broadcast score update to player + spectators
+            server.broadcastScoreUpdateToGroup(sess.clientId(), p.getScore());
+            
+            // Remove the fruit for player + spectators
+            server.sendToPlayerGroup(sess.clientId(), h -> h.sendRemoveFruit(fruitX, fruitY));
+            
+            // Remove from server's fruit list
+            server.fruits.removeIf(r -> r.x() == fruitX && r.y() == fruitY);
+            server.fruitStates.removeIf(f -> f.x == fruitX && f.y == fruitY);
+            
             return;
         }
 

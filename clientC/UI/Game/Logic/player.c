@@ -15,6 +15,8 @@ void player_init(Player* p, int16_t x, int16_t y, int16_t w, int16_t h) {
     p->isDead = false;
     p->justPickedFruit = false;
     p->justDied = false;
+    p->lastPickedFruitX = 0;
+    p->lastPickedFruitY = 0;
 
 }
 

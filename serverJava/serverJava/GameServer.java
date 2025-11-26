@@ -266,6 +266,8 @@ public class GameServer {
         player pState = getPlayerFromServer(targetPlayerId); 
         byte lives = (byte) pState.getLives();
         spectator.sendLivesUpdate(lives);
+        int score = pState.getScore();
+        spectator.sendScoreUpdate(score);
 
 
         System.out.println("Spectator " + spectatorClientId
@@ -289,6 +291,9 @@ public class GameServer {
         sendToPlayerGroup(playerId, h -> h.sendLivesUpdate(lives));
     }
 
+    public void broadcastScoreUpdateToGroup(int playerId, int score) {
+        sendToPlayerGroup(playerId, h -> h.sendScoreUpdate(score));
+    }
 
 
     public void start() throws IOException {
@@ -458,7 +463,7 @@ public class GameServer {
     }
 
 
-    private void sendToPlayerGroup(int playerId, Consumer<ClientHandler> action) {
+    public void sendToPlayerGroup(int playerId, Consumer<ClientHandler> action) {
     // jugador principal
         ClientHandler player = clients.get(playerId);
         if (player != null) {

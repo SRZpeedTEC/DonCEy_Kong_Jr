@@ -31,6 +31,9 @@ typedef struct {
     bool justDied;   // true only in the frame that Jr dies
 
     bool justPickedFruit;
+
+    int16_t lastPickedFruitX;
+    int16_t lastPickedFruitY;
 } Player;
 
 
