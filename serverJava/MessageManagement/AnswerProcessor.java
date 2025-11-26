@@ -90,10 +90,15 @@ public class AnswerProcessor {
 
             messenger.sendLivesUpdate(sess, (byte)p.getLives());
 
+            // Clear all entities for the new round / end of game
+            server.clearEntitiesForNewRound();
+
             if (p.getLives() > 0) {
-                server.broadcastRespawnDeathToGroup(sess.clientId()); // -> CP_TYPE_RESPAWN_DEATH_COLLISION
+                // Player died but still has lives -> respawn round
+                server.broadcastRespawnDeathToGroup(sess.clientId());
             } else {
-                messenger.sendGameOver(sess);       // -> CP_TYPE_GAME_OVER
+                // No lives left -> game over for player and spectators
+                server.broadcastGameOverToGroup(sess.clientId());
             }
             return;
         }
@@ -113,12 +118,16 @@ public class AnswerProcessor {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
-            p.increaseLives();              // +1 vida
+            p.increaseLives();
             System.out.println("Player " + sess.clientId() + " won! Lives now: " + p.getLives());
 
             messenger.sendLivesUpdate(sess, (byte)p.getLives());
-            messenger.sendRespawnWin(sess); // -> CP_TYPE_RESPAWN_WIN
 
+            // Reset board entities for the new round after a win
+            server.clearEntitiesForNewRound();
+
+            // Notify both player and spectators
+            server.broadcastRespawnWinToGroup(sess.clientId());
             return;
         }
 

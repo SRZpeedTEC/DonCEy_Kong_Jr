@@ -188,6 +188,13 @@ public class GameServer {
         }
     }
 
+    public synchronized void clearEntitiesForNewRound() {
+        crocodiles.clear();
+        fruits.clear();
+        crocodileStates.clear();
+        fruitStates.clear();
+    }
+
 
     private Integer choosePlayerForSpectator() {
         Integer best = null;
