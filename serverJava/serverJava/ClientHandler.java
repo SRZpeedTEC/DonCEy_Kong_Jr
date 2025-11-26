@@ -4,12 +4,8 @@ import java.io.*;
 import java.net.*;
 
 import MessageManagement.Messenger;
-import MessageManagement.Proto;
 import MessageManagement.Session;
 import MessageManagement.AnswerProcessor;
-import Utils.MsgType;
-import serverJava.ClientRole;
-import Utils.Rect;
 import Classes.Player.player;
 
 
@@ -111,6 +107,29 @@ public class ClientHandler extends Thread {
             session.log("Sent REMOVE_FRUIT to " + clientId + " at ("+x+","+y+")");
         } catch(IOException e){
             session.log("Error REMOVE_FRUIT: " + e.getMessage());
+        }
+    }
+
+    public void sendRespawnDeath() {
+        try { messenger.sendRespawnDeath(session); }
+        catch (IOException e){ session.log("Error RESPawnDeath: "+e.getMessage()); }
+    }
+
+    public void sendRespawnWin() {
+        try { messenger.sendRespawnWin(session); }
+        catch (IOException e){ session.log("Error RESPawnWin: "+e.getMessage()); }
+    }
+
+    public void sendGameOver() {
+        try { messenger.sendGameOver(session); }
+        catch (IOException e){ session.log("Error GameOver: "+e.getMessage()); }
+    }
+
+    public void sendLivesUpdate(byte lives) {
+        try {
+            messenger.sendLivesUpdate(session, lives);
+        } catch (IOException e) {
+            session.log("Error LIVES_UPDATE: " + e.getMessage());
         }
     }
 

@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 
 import Utils.Rect;
 import Classes.Player.player;
+import serverJava.EntityState;
 
 public class GameServer {
 
@@ -35,9 +36,14 @@ public class GameServer {
     public final List<Rect> vines      = new ArrayList<>();
     public final List<Rect> waters     = new ArrayList<>();
 
-    // crocodiles & fruits were referenced in Messenger
-    public final List<Rect> crocodiles    = new ArrayList<>();
+    // legacy (para INIT_STATIC y compatibilidad con Messenger)
+    public final List<Rect> crocodiles = new ArrayList<>();
     public final List<Rect> fruits     = new ArrayList<>();
+
+    // nuevas (para sincronizar espectadores tarde)
+    public final List<EntityState> crocodileStates = new ArrayList<>();
+    public final List<EntityState> fruitStates     = new ArrayList<>();
+
 
     static final int CROC_W  = 8;
     static final int FRUIT_W = 8;
@@ -182,6 +188,13 @@ public class GameServer {
         }
     }
 
+    public synchronized void clearEntitiesForNewRound() {
+        crocodiles.clear();
+        fruits.clear();
+        crocodileStates.clear();
+        fruitStates.clear();
+    }
+
 
     private Integer choosePlayerForSpectator() {
         Integer best = null;
@@ -242,11 +255,38 @@ public class GameServer {
 
         specs.add(spectator);
         spectator.setObservedPlayerId(targetPlayerId);
+       
+        for (EntityState c : crocodileStates) {
+            spectator.sendSpawnCroc(c.variant, c.x, c.y);
+        }
+        for (EntityState f : fruitStates) {
+            spectator.sendSpawnFruit(f.variant, f.x, f.y);
+        }
+
+        player pState = getPlayerFromServer(targetPlayerId); 
+        byte lives = (byte) pState.getLives();
+        spectator.sendLivesUpdate(lives);
+
 
         System.out.println("Spectator " + spectatorClientId
                 + " attached to player " + targetPlayerId
                 + " (slot " + slotIndex + ")");
         return true;
+    }
+
+    public void broadcastRespawnDeathToGroup(int playerId){
+        sendToPlayerGroup(playerId, ClientHandler::sendRespawnDeath);
+    }
+
+    public void broadcastRespawnWinToGroup(int playerId){
+        sendToPlayerGroup(playerId, ClientHandler::sendRespawnWin);
+    }
+
+    public void broadcastGameOverToGroup(int playerId){
+        sendToPlayerGroup(playerId, ClientHandler::sendGameOver);
+    }
+    public void broadcastLivesUpdateToGroup(int playerId, byte lives) {
+        sendToPlayerGroup(playerId, h -> h.sendLivesUpdate(lives));
     }
 
 
@@ -448,36 +488,54 @@ public class GameServer {
         int x = centerXOn(v, CROC_W);
         int y = quantizeCenterY(v, pos);
         sendToPlayerGroup(clientId, h -> h.sendSpawnCroc(variant, x, y));
+        crocodiles.add(new Rect(x, y, 8, 8));
+        crocodileStates.add(new EntityState(variant, x, y));
+
     }
     public void spawnFruitOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
         int x = centerXOn(v, FRUIT_W);
         int y = quantizeCenterY(v, pos);
         sendToPlayerGroup(clientId, h -> h.sendSpawnFruit(variant, x, y));
+        fruits.add(new Rect(x, y, 8, 8));
+        fruitStates.add(new EntityState(variant, x, y));
+
     }
     public void spawnCrocOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
         int y = p.y() - 8; // ajusta si quieres el centro: p.y()+p.h()/2
         sendToPlayerGroup(clientId, h -> h.sendSpawnCroc(variant, x, y));
+        crocodiles.add(new Rect(x, y, 8, 8));
+        crocodileStates.add(new EntityState(variant, x, y));
+
     }
     public void spawnFruitOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
         int y = p.y() - 8;
         sendToPlayerGroup(clientId, h -> h.sendSpawnFruit(variant, x, y));
+        fruits.add(new Rect(x, y, 8, 8));
+        fruitStates.add(new EntityState(variant, x, y));
     }
     public void removeFruitOnVineForClient(int clientId, int vineIndex, int pos){
         Rect v = vines.get(vineIndex);
-        int x = centerXOn(v, FRUIT_W);
+        int x = v.x() + v.w()/2;
         int y = quantizeCenterY(v, pos);
+
         sendToPlayerGroup(clientId, h -> h.sendRemoveFruit(x, y));
+        fruits.removeIf(r -> r.x() == x && r.y() == y);
+        fruitStates.removeIf(f -> f.x == x && f.y == y);
     }
     public void removeFruitOnPlatformForClient(int clientId, int platIndex, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
         int y = p.y() - 8;
+
         sendToPlayerGroup(clientId, h -> h.sendRemoveFruit(x, y));
+
+        fruits.removeIf(r -> r.x() == x && r.y() == y);
+        fruitStates.removeIf(f -> f.x == x && f.y == y);
     }
 
 

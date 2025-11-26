@@ -123,9 +123,6 @@ static void on_score_update(const uint8_t* p, uint32_t n){
     }
 }
 
-
-
-
 // ---- envío de propuesta (cliente -> server) ----
 static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
 {

@@ -1,7 +1,6 @@
 package MessageManagement;
 
 import java.io.*;
-import java.util.*;
 import serverJava.GameServer;
 import Utils.MsgType;
 import Classes.Player.player;
@@ -89,12 +88,18 @@ public class AnswerProcessor {
 
             if (p.getLives() > 0) p.decreaseLives();
 
-            messenger.sendLivesUpdate(sess, (byte)p.getLives());
+            server.clearEntitiesForNewRound();
+            byte lives = (byte) p.getLives();
+
+            // HUD for player + spectators
+            server.broadcastLivesUpdateToGroup(sess.clientId(), lives);
 
             if (p.getLives() > 0) {
-                messenger.sendRespawnDeath(sess);   // -> CP_TYPE_RESPAWN_DEATH_COLLISION
+                // respawn for everyone watching this player
+                server.broadcastRespawnDeathToGroup(sess.clientId());
             } else {
-                messenger.sendGameOver(sess);       // -> CP_TYPE_GAME_OVER
+                // game over for everyone watching this player
+                server.broadcastGameOverToGroup(sess.clientId());
             }
             return;
         }
@@ -114,12 +119,15 @@ public class AnswerProcessor {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
-            p.increaseLives();              // +1 vida
+            p.increaseLives();
             System.out.println("Player " + sess.clientId() + " won! Lives now: " + p.getLives());
+            server.clearEntitiesForNewRound();
 
-            messenger.sendLivesUpdate(sess, (byte)p.getLives());
-            messenger.sendRespawnWin(sess); // -> CP_TYPE_RESPAWN_WIN
+            byte lives = (byte) p.getLives();
 
+            // HUD and respawn for everyone in the group
+            server.broadcastLivesUpdateToGroup(sess.clientId(), lives);
+            server.broadcastRespawnWinToGroup(sess.clientId());
             return;
         }
 

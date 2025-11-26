@@ -87,10 +87,37 @@ static int send_spectate_request(int socketFd, uint8_t slot) {
     return cp_send_frame(socketFd, CP_TYPE_SPECTATE_REQUEST, 0, 0, buf, sizeof(buf)) ? 1 : 0;
 }
 
+static void on_respawn_death(const uint8_t* p, uint32_t n){
+        (void)p; (void)n;
+        game_respawn_death();
+    }
+
+static void on_respawn_win(const uint8_t* p, uint32_t n){
+        (void)p; (void)n;
+        game_respawn_win();
+    }
+static void on_game_over(const uint8_t* p, uint32_t n){
+        (void)p; (void)n;
+        game_over_event();
+    }
+
 // ---- handlers ----
 static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
     if (!cp_recv_init_static_payload(payloadPtr,payloadLen)) fprintf(stderr,"[INIT_STATIC] payload invalido\n");
     else fprintf(stdout,"[INIT_STATIC] OK\n");
+}
+
+// --- lives / score handlers (copy from player client) ---
+static void on_lives_update(const uint8_t* p, uint32_t n){
+    if (n >= 1) game_set_ui_lives(p[0]);
+}
+
+static void on_score_update(const uint8_t* p, uint32_t n){
+    if (n >= 4){
+        uint32_t sc = ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)
+                    | ((uint32_t)p[2]<<8)|p[3];
+        game_set_ui_score(sc);
+    }
 }
 
 
@@ -145,9 +172,16 @@ int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
     disp_register(CP_TYPE_SPAWN_FRUIT,      on_spawn_fruit);
     disp_register(CP_TYPE_REMOVE_FRUIT,     on_remove_fruit);
     disp_register(CP_TYPE_SPECTATOR_STATE,  on_spectator_state);
+    disp_register(CP_TYPE_RESPAWN_DEATH_COLLISION, on_respawn_death);
+    disp_register(CP_TYPE_RESPAWN_WIN,            on_respawn_win);
+    disp_register(CP_TYPE_GAME_OVER,              on_game_over);
+    disp_register(CP_TYPE_LIVES_UPDATE,           on_lives_update);
+    disp_register(CP_TYPE_SCORE_UPDATE,           on_score_update);
+
 
     CP_Header header;
     uint8_t roleByte = 0;
+
 
     // 2) Read CLIENT_ACK (s -> c)
     if (!cp_read_header(socketFd, &header) || header.type != CP_TYPE_CLIENT_ACK) {

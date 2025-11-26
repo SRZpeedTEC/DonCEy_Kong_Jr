@@ -373,7 +373,12 @@ void game_apply_remote_state(int16_t x, int16_t y, int16_t vx, int16_t vy, uint8
 
 // Update dynamic entities for the spectator (no input, no local player physics)
 void game_update_spectator(const CP_Static* staticMap) {
-    (void)staticMap; // not strictly needed if you use map_view_build()
+    (void)staticMap;
+
+    // If game is over, freeze everything (no croc updates)
+    if (gGameOver) {
+        return;
+    }
 
     // build world view
     MapView mv = map_view_build();
@@ -382,9 +387,6 @@ void game_update_spectator(const CP_Static* staticMap) {
     for (int i = 0; i < MAX_CROCS; ++i) {
         crocodile_update(&gCrocs[i], &mv);
     }
-
-    // if fruits ever move or animate, update them here too
-    // (right now your Fruit seems static except for spawn/remove)
 }
 
 void game_spawn_croc(uint8_t variant, int16_t x, int16_t y) {
@@ -448,9 +450,14 @@ bool game_consume_fruit_event(void) {
 }
 
 void game_over_event(void) {
-    // PONER PANTALLA DE GAME OVER ACA
-    gGameOver = true;        
-    for (int i = 0; i < MAX_CROCS; ++i) gCrocs[i].active = gCrocs[i].active; 
+    gGameOver = true;
+    /*
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        gCrocs[i].active = false;
+    }
+    for (int i = 0; i < MAX_FRUITS; ++i) {
+        gFruits[i].active = false;
+    }*/
 }
 
 // reset all dynamic entities for a fresh round
