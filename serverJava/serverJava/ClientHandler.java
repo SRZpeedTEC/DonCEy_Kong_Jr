@@ -125,6 +125,14 @@ public class ClientHandler extends Thread {
         catch (IOException e){ session.log("Error GameOver: "+e.getMessage()); }
     }
 
+    public void sendLivesUpdate(byte lives) {
+        try {
+            messenger.sendLivesUpdate(session, lives);
+        } catch (IOException e) {
+            session.log("Error LIVES_UPDATE: " + e.getMessage());
+        }
+    }
+
 
     @Override
     public void run() {

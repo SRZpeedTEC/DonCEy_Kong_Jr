@@ -107,6 +107,19 @@ static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
     else fprintf(stdout,"[INIT_STATIC] OK\n");
 }
 
+// --- lives / score handlers (copy from player client) ---
+static void on_lives_update(const uint8_t* p, uint32_t n){
+    if (n >= 1) game_set_ui_lives(p[0]);
+}
+
+static void on_score_update(const uint8_t* p, uint32_t n){
+    if (n >= 4){
+        uint32_t sc = ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)
+                    | ((uint32_t)p[2]<<8)|p[3];
+        game_set_ui_score(sc);
+    }
+}
+
 
 static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
     TLVBuf tlvBuf; tlv_init(&tlvBuf,payloadPtr,payloadLen);
@@ -162,6 +175,8 @@ int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
     disp_register(CP_TYPE_RESPAWN_DEATH_COLLISION, on_respawn_death);
     disp_register(CP_TYPE_RESPAWN_WIN,            on_respawn_win);
     disp_register(CP_TYPE_GAME_OVER,              on_game_over);
+    disp_register(CP_TYPE_LIVES_UPDATE,           on_lives_update);
+    disp_register(CP_TYPE_SCORE_UPDATE,           on_score_update);
 
 
     CP_Header header;

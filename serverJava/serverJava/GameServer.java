@@ -263,6 +263,10 @@ public class GameServer {
             spectator.sendSpawnFruit(f.variant, f.x, f.y);
         }
 
+        player pState = getPlayerFromServer(targetPlayerId); 
+        byte lives = (byte) pState.getLives();
+        spectator.sendLivesUpdate(lives);
+
 
         System.out.println("Spectator " + spectatorClientId
                 + " attached to player " + targetPlayerId
@@ -280,6 +284,9 @@ public class GameServer {
 
     public void broadcastGameOverToGroup(int playerId){
         sendToPlayerGroup(playerId, ClientHandler::sendGameOver);
+    }
+    public void broadcastLivesUpdateToGroup(int playerId, byte lives) {
+        sendToPlayerGroup(playerId, h -> h.sendLivesUpdate(lives));
     }
 
 
