@@ -36,7 +36,7 @@ bool game_consume_death_event(void);
 
 bool game_consume_win_event(void);
 
-bool game_consume_fruit_event(void);
+bool game_consume_fruit_event(int16_t* outX, int16_t* outY);
 
 void game_over_event(void);
 

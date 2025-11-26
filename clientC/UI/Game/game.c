@@ -438,13 +438,15 @@ bool game_consume_win_event(void) {
     return true;
 }
 
-bool game_consume_fruit_event(void) {
-    // One–shot event: only true once per pickup
+bool game_consume_fruit_event(int16_t* outX, int16_t* outY) {
     if (!gPlayer.justPickedFruit) {
         return false;
     }
 
-    // Clear the event so it is not reported again next frame
+    // Store the coordinates of the last picked fruit
+    if (outX) *outX = gPlayer.lastPickedFruitX;
+    if (outY) *outY = gPlayer.lastPickedFruitY;
+
     gPlayer.justPickedFruit = false;
     return true;
 }

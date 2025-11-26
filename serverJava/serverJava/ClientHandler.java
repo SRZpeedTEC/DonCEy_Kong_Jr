@@ -133,6 +133,14 @@ public class ClientHandler extends Thread {
         }
     }
 
+    public void sendScoreUpdate(int score) {
+        try {
+            messenger.sendScoreUpdate(session, score);
+        } catch (IOException e) {
+            session.log("Error SCORE_UPDATE: " + e.getMessage());
+        }
+    }
+
 
     @Override
     public void run() {

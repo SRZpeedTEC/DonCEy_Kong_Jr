@@ -146,10 +146,14 @@ static int send_notify_victory(int socketFd, uint32_t clientId)
     return cp_send_frame(socketFd, CP_TYPE_NOTIFY_VICTORY, clientId, 0, NULL, 0) ? 1 : 0;
 }
 
-static int send_notify_fruit_pick(int socketFd, uint32_t clientId){
-    return cp_send_frame(socketFd, CP_TYPE_NOTIFY_FRUIT_PICK, clientId, 0, NULL, 0) ? 1 : 0;
+static int send_notify_fruit_pick(int socketFd, uint32_t clientId, int16_t fruitX, int16_t fruitY){
+    uint8_t buf[4];
+    buf[0] = fruitX >> 8;
+    buf[1] = fruitX & 0xFF;
+    buf[2] = fruitY >> 8;
+    buf[3] = fruitY & 0xFF;
+    return cp_send_frame(socketFd, CP_TYPE_NOTIFY_FRUIT_PICK, clientId, 0, buf, sizeof(buf)) ? 1 : 0;
 }
-
 
 
 
@@ -281,8 +285,9 @@ int run_player_client(const char* ip, uint16_t port)
             send_notify_victory(socketFd, clientId);
         }
 
-        if (game_consume_fruit_event()) {
-            send_notify_fruit_pick(socketFd, clientId);
+        int16_t fruitX, fruitY;
+        if (game_consume_fruit_event(&fruitX, &fruitY)) {
+            send_notify_fruit_pick(socketFd, clientId, fruitX, fruitY);
         }
 
         send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);

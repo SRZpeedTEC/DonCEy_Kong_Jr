@@ -526,6 +526,8 @@ bool player_pick_fruits(Player* player, Fruit* fruits, int count)
         {
             fruits[i].active = false;
             player->justPickedFruit = true;
+            player->lastPickedFruitX = fruits[i].x;
+            player->lastPickedFruitY = fruits[i].y;
             return true; // one fruit per frame is suficiente
         }
     }
