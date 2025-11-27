@@ -7,14 +7,14 @@
 
 
 #include "../Render/render.h"
-#include "Logic/input.h"
-#include "Logic/player.h"
-#include "Logic/physics.h"
-#include "Logic/map.h"
-#include "Logic/crocodile.h"
-#include "Logic/constants.h"
-#include "Logic/fruit.h"
-#include "Logic/collision.h"
+#include "logic/input.h"
+#include "logic/player.h"
+#include "logic/physics.h"
+#include "logic/map.h"
+#include "logic/crocodile.h"
+#include "logic/constants.h"
+#include "logic/fruit.h"
+#include "logic/collision.h"
 #include "../../UtilsC/entities_tlv.h" 
 
 
@@ -81,6 +81,8 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     rt = LoadRenderTexture(VW, VH);
     SetTextureFilter(rt.texture, TEXTURE_FILTER_POINT); // crisp pixel-art
 
+    render_init_assets();
+
     // start player box (will be replaced by sprites later)
     player_init(&gPlayer, 16, 192, 16, 16);
 
@@ -101,6 +103,9 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
 
 void game_shutdown(void) {
     if (g_bg.id) { UnloadTexture(g_bg); g_bg.id = 0; }
+
+    render_init_assets();
+
     UnloadRenderTexture(rt);
     CloseWindow();
 }
@@ -127,8 +132,9 @@ void game_draw_static(const CP_Static* staticMap) {
         }
 
         // draw level primitives + player box via render module
-        render_draw_level(staticMap, gPlayer.x, gPlayer.y, gPlayer.w, gPlayer.h);
+        render_draw_level(staticMap, &gPlayer, gCrocs,  MAX_CROCS, gFruits, MAX_FRUITS);
 
+        /*
         
         // draw all active crocodiles
         for (int i = 0; i < MAX_CROCS; ++i) {
@@ -148,6 +154,8 @@ void game_draw_static(const CP_Static* staticMap) {
                 DrawRectangle(gFruits[i].x, gFruits[i].y, gFruits[i].w, gFruits[i].h, col);
             }
         }
+
+        */
 
     EndTextureMode();
 
