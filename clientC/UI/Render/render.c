@@ -40,6 +40,8 @@ static int jrClimbCounter  = 0;
 
 
 static int jrFacing = 1;  // 1 = right, -1 = left
+static int jrBetweenFlip = 1;  
+static int jrBetweenFlipCounter = 0;  // counts frames between flips
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -309,6 +311,24 @@ void render_draw_level(const struct CP_Static* staticMap,
         // Store facing for next frame (for idle / in between vines, etc.)
         jrFacing = facing;
 
+        // Visual facing used for drawing
+        int drawFacing = facing;
+
+        // When between vines and actually moving vertically,
+        // flip every 2 frames instead of every single frame.
+        if (st == JR_VIS_BETWEEN_VINES && player->vy != 0) {
+            jrBetweenFlipCounter++;
+            if (jrBetweenFlipCounter >= 4) {   // every other frame
+                jrBetweenFlipCounter = 0;
+                jrBetweenFlip = -jrBetweenFlip;  // toggle 1 <-> -1
+            }
+            drawFacing *= jrBetweenFlip;        // apply visual flip
+        } else {
+            // Reset counter when not actively moving between vines
+            jrBetweenFlipCounter = 0;
+            jrBetweenFlip        = 1;
+        }
+
         Rectangle src = {
             0.0f,
             0.0f,
@@ -316,24 +336,40 @@ void render_draw_level(const struct CP_Static* staticMap,
             (float)jrTex.height
         };
 
-        if (facing < 0) {
-            // Flip horizontally by using negative width
+        if (drawFacing < 0) {
             src.x     = (float)jrTex.width;
             src.width = -src.width;
         }
 
-        Rectangle dst = {
-            (float)player->x,
-            (float)player->y,
-            (float)player->w,
-            (float)player->h
-        };
-
-        DrawTexturePro(jrTex, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
-
-        // Debug: draw player's hitbox
-        DrawRectangleLines(player->x, player->y, player->w, player->h, ORANGE);
+    // Stretch horizontally when between vines or falling
+    int expandPixels = 0;
+    if (st == JR_VIS_BETWEEN_VINES) {
+        expandPixels = 5;   // 5px
+    } else if (st == JR_VIS_FALL) {
+        expandPixels = 3;   // 3 px 
     }
+
+    float drawX = (float)(player->x - expandPixels);
+    float drawW = (float)(player->w + expandPixels * 2);
+
+    Rectangle dst = {
+        drawX,
+        (float)player->y,
+        drawW,
+        (float)player->h
+    };
+
+    DrawTexturePro(jrTex, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
+
+    // Debug: draw "visual" hitbox (stretched), not the physics one
+    DrawRectangleLines(
+        (int)drawX,
+        player->y,
+        (int)drawW,
+        player->h,
+        ORANGE
+    );
+}
 
     // -------------------------------------------------------------------------
     // Draw Crocodiles (sprite + hitbox)
