@@ -71,7 +71,7 @@ static int check_server_capacity(const char* ip, uint16_t port, uint8_t requeste
     net_cleanup();
 
     if (roleByte == 0) {
-        // server respondió "sin rol" => capacidad alcanzada
+        // server respondiÃ³ "sin rol" => capacidad alcanzada
         return 0;
     }
 
@@ -107,24 +107,56 @@ int main(void) {
     while (!WindowShouldClose()) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 m = GetMousePosition();
+            
+            // If error is showing, any click dismisses it
+            if (showErrorMessage) {
+                showErrorMessage = 0;
+                continue;  // Skip other button checks this frame
+            }
 
             if (launcherStep == 0) {
                 // Pantalla 1: elegir rol
                 if (CheckCollisionPointRec(m, btnPlayer)) {
-                    // Just launch - server will reject if full
-                    selectedRole = 1;
-                    showErrorMessage = 0;
-                    shouldLaunchClient = true;
+                    uint16_t port = (uint16_t)atoi(portStr);
+                    
+                    int cap = check_server_capacity(ip, port, 1); // 1 = PLAYER
+                    if (cap == 1) {
+                        // Server accepts - launch client
+                        selectedRole = 1;
+                        showErrorMessage = 0;
+                        shouldLaunchClient = true;
+                    } else if (cap == 0) {
+                        // Server rejected - show error
+                        showErrorMessage = 1;
+                        strcpy(errorText, "Maximo de jugadores alcanzado.\nNo se puede crear otro PLAYER.");
+                    } else {
+                        // Connection error
+                        showErrorMessage = 1;
+                        strcpy(errorText, "No se pudo conectar al servidor.");
+                    }
                 }
 
                 if (CheckCollisionPointRec(m, btnSpectator)) {
-                    // Just proceed to slot selection - server will reject if full
-                    selectedRole = 2;
-                    launcherStep = 1;
-                    showErrorMessage = 0;
+                    uint16_t port = (uint16_t)atoi(portStr);
+                    
+                    int cap = check_server_capacity(ip, port, 2); // 2 = SPECTATOR
+                    if (cap == 1) {
+                        // Server accepts - proceed to slot selection
+                        selectedRole = 2;
+                        launcherStep = 1;
+                        showErrorMessage = 0;
+                    } else if (cap == 0) {
+                        // Server rejected - show error
+                        showErrorMessage = 1;
+                        strcpy(errorText, "Maximo de espectadores alcanzado.\nTodos los espacios estan llenos.");
+                    } else {
+                        // Connection error
+                        showErrorMessage = 1;
+                        strcpy(errorText, "No se pudo conectar al servidor.");
+                    }
                 }
             } else if (launcherStep == 1 && selectedRole == 2) {
-                // Pantalla 2: elegir qué player espectear
+                // Pantalla 2: elegir quÃ© player espectear
                 if (CheckCollisionPointRec(m, btnSlot1)) {
                     desiredSlot = 1;
                     shouldLaunchClient = true;
@@ -165,13 +197,14 @@ int main(void) {
 
         if (showErrorMessage) {
             int boxW = 560;
-            int boxH = 60;
+            int boxH = 80;
             int boxX = (screenWidth  - boxW) / 2;
             int boxY = screenHeight - boxH - 10;
 
             DrawRectangle(boxX, boxY, boxW, boxH, (Color){80, 0, 0, 255});
             DrawRectangleLines(boxX, boxY, boxW, boxH, RED);
-            DrawText(errorText, boxX + 10, boxY + 10, 18, RAYWHITE);
+            DrawText(errorText, boxX + 10, boxY + 10, 16, RAYWHITE);
+            DrawText("Intenta creando un nuevo jugador", boxX + 10, boxY + 55, 14, GRAY);
         }
         EndDrawing();
         
@@ -185,7 +218,7 @@ int main(void) {
 
     // Only launch client if explicitly flagged to do so
     if (!shouldLaunchClient || selectedRole == 0) {
-        // Usuario cerró el launcher sin elegir nada o hubo un error
+        // Usuario cerrÃ³ el launcher sin elegir nada o hubo un error
         return 0;
     }
 
