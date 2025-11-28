@@ -105,9 +105,7 @@ public class GameServer {
         vines.add(new Rect(156,  33,  2,   7));
         vines.add(new Rect(108,  33,  2,  15));
 
-        // If you want an initial visible position for the player rect:
-        // (example values — use whatever your game logic expects)
-        player = new Rect(16, 200, 16, 16);
+        //player = new Rect(25, 190, 16, 16);
     }
 
     // Optional getters (you can keep them or remove them; Messenger uses the public fields)

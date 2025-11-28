@@ -224,33 +224,6 @@ void render_draw_level(const struct CP_Static* staticMap,
 {
     if (!staticMap) return;
 
-    // -------------------------------------------------------------------------
-    // Draw water (filled)
-    // -------------------------------------------------------------------------
-    for (int i = 0; i < staticMap->nWater; i++) {
-        DrawRectangle(staticMap->water[i].x, staticMap->water[i].y,
-                      staticMap->water[i].w, staticMap->water[i].h,
-                      SKYBLUE);
-    }
-
-    // -------------------------------------------------------------------------
-    // Draw platforms (outline)
-    // -------------------------------------------------------------------------
-    for (int i = 0; i < staticMap->nPlat; i++) {
-        DrawRectangleLines(staticMap->plat[i].x, staticMap->plat[i].y,
-                           staticMap->plat[i].w, staticMap->plat[i].h,
-                           GREEN);
-    }
-
-    // -------------------------------------------------------------------------
-    // Draw vines (outline)
-    // -------------------------------------------------------------------------
-    for (int i = 0; i < staticMap->nVines; i++) {
-        DrawRectangleLines(staticMap->vines[i].x, staticMap->vines[i].y,
-                           staticMap->vines[i].w, staticMap->vines[i].h,
-                           YELLOW);
-    }
-
         // -------------------------------------------------------------------------
     // Draw Player sprite + hitbox debug
     // -------------------------------------------------------------------------
@@ -318,7 +291,7 @@ void render_draw_level(const struct CP_Static* staticMap,
         // flip every 2 frames instead of every single frame.
         if (st == JR_VIS_BETWEEN_VINES && player->vy != 0) {
             jrBetweenFlipCounter++;
-            if (jrBetweenFlipCounter >= 4) {   // every other frame
+            if (jrBetweenFlipCounter >= 8) {   // every other frame
                 jrBetweenFlipCounter = 0;
                 jrBetweenFlip = -jrBetweenFlip;  // toggle 1 <-> -1
             }
@@ -361,14 +334,6 @@ void render_draw_level(const struct CP_Static* staticMap,
 
     DrawTexturePro(jrTex, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
 
-    // Debug: draw "visual" hitbox (stretched), not the physics one
-    DrawRectangleLines(
-        (int)drawX,
-        player->y,
-        (int)drawW,
-        player->h,
-        ORANGE
-    );
 }
 
     // -------------------------------------------------------------------------
@@ -442,9 +407,6 @@ void render_draw_level(const struct CP_Static* staticMap,
 
         DrawTexturePro(sprite, src, dst, origin, angle, WHITE);
 
-        // Debug: draw croc hitbox
-        DrawRectangleLines(crocs[i].x, crocs[i].y, crocs[i].w, crocs[i].h,
-                           (crocs[i].variant == CROC_VARIANT_BLUE) ? BLUE : RED);
     }
 
     // -------------------------------------------------------------------------
@@ -474,7 +436,5 @@ void render_draw_level(const struct CP_Static* staticMap,
 
         DrawTexturePro(sprite, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
 
-        // Debug: draw fruit hitbox
-        DrawRectangleLines(fruits[i].x, fruits[i].y, fruits[i].w, fruits[i].h, GOLD);
     }
 }

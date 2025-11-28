@@ -82,7 +82,7 @@ void game_init(uint16_t vw, uint16_t vh, uint16_t scale) {
     render_init_assets();
 
     // start player box (will be replaced by sprites later)
-    player_init(&gPlayer, 16, 192, 16, 16);
+    player_init(&gPlayer, 30, 195, 16, 16);
 
     // init croc state
     for (int i = 0; i < MAX_CROCS; ++i) {
@@ -120,7 +120,7 @@ void game_set_bg(const char* path, float alpha) {
 // --- draw ---
 void game_draw_static(const CP_Static* staticMap) {
     BeginTextureMode(rt);
-        ClearBackground(BLACK);
+        //ClearBackground(BLACK);
 
         // draw background texture (kept here to avoid exposing Texture2D in render.h)
         if (g_bg.id) {
@@ -132,57 +132,16 @@ void game_draw_static(const CP_Static* staticMap) {
         // draw level primitives + player box via render module
         render_draw_level(staticMap, &gPlayer, gCrocs,  MAX_CROCS, gFruits, MAX_FRUITS);
 
-        /*
-        
-        // draw all active crocodiles
-        for (int i = 0; i < MAX_CROCS; ++i) {
-            if (gCrocs[i].active) {
-                Color col = (gCrocs[i].variant == CROC_VARIANT_BLUE) ? BLUE : RED;
-                DrawRectangle(gCrocs[i].x, gCrocs[i].y, gCrocs[i].w, gCrocs[i].h, col);
-            }
-        }
-        
-        // draw all active fruits
-        for (int i = 0; i < MAX_FRUITS; ++i) {
-            if (gFruits[i].active) {
-                Color col = YELLOW;
-                if      (gFruits[i].variant == FRUIT_VARIANT_APPLE)  col = PINK;
-                else if (gFruits[i].variant == FRUIT_VARIANT_ORANGE) col = ORANGE;
-                else                                                 col = YELLOW; // BANANA
-                DrawRectangle(gFruits[i].x, gFruits[i].y, gFruits[i].w, gFruits[i].h, col);
-            }
-        }
-
-        */
 
     EndTextureMode();
 
     BeginDrawing();
-        ClearBackground(BLACK);
+        //ClearBackground(BLACK);
         // note: negative height to flip the render texture
         Rectangle src = (Rectangle){0, 0, (float)rt.texture.width, -(float)rt.texture.height};
         Rectangle dst = (Rectangle){0, 0, (float)VW * SCALE, (float)VH * SCALE};
-        DrawTexturePro(rt.texture, src, dst, (Vector2){0, 0}, 0, WHITE);
+        DrawTexturePro(rt.texture, src, dst, (Vector2){0, 0}, 0, WHITE);   
 
-            // debug: show if player is on a vine
-        MapView debugView = map_view_build();
-        bool betweenVines = player_between_vines(&gPlayer, &debugView);
-
-        DrawText(gPlayer.onVine ? "ON VINE" : "NOT ON VINE", 8, 24, 10, WHITE);
-        if (gPlayer.betweenVines) {
-            DrawText("BETWEEN VINES", 8, 36, 10, YELLOW);
-            char buf[64];
-            snprintf(buf, sizeof(buf), "LEFT:%d RIGHT:%d", gPlayer.vineLeftIndex, gPlayer.vineRightIndex);
-            DrawText(buf, 8, 48, 10, WHITE);
-        }
-        if (gPlayer.vineForcedFall) {
-        DrawText("FORCED FALL", 8, 48, 10, SKYBLUE);
-        }
-
-        // death debug
-        if (gPlayer.isDead) {
-            DrawText("DEAD", 8, 72, 16, RED);
-        }
 
         // show win debug centered at top
         if (gRoundWon) {
@@ -229,12 +188,6 @@ void game_draw_static(const CP_Static* staticMap) {
             DrawText(btnText, textX, textY, btnFontSize, WHITE);
         }
 
-        // fruits picked debug
-        {
-            char fruitBuf[32];
-            snprintf(fruitBuf, sizeof(fruitBuf), "FRUITS: %d", gFruitsPickedCount);
-            DrawText(fruitBuf, 8, 90, 10, ORANGE);
-        }
 
         {
             char hud[64];
@@ -486,13 +439,6 @@ bool game_consume_fruit_event(int16_t* outX, int16_t* outY) {
 
 void game_over_event(void) {
     gGameOver = true;
-    /*
-    for (int i = 0; i < MAX_CROCS; ++i) {
-        gCrocs[i].active = false;
-    }
-    for (int i = 0; i < MAX_FRUITS; ++i) {
-        gFruits[i].active = false;
-    }*/
 }
 
 // reset all dynamic entities for a fresh round
@@ -521,7 +467,7 @@ void game_respawn_death(void) {
     gPlayer.isDead = false;
 
     // reset player state and position
-    player_init(&gPlayer, 16, 192, 16, 16);
+    player_init(&gPlayer, 30, 195, 16, 16);
 }
 
 // respawn after a win: reset player and entities, increase croc speed
@@ -535,7 +481,7 @@ void game_respawn_win(void) {
     gRoundJustWon = false;
 
     // reset player state and position
-    player_init(&gPlayer, 16, 192, 16, 16);
+    player_init(&gPlayer, 30, 195, 16, 16);
 }
 
 // full game restart: reset everything to initial state (3 lives, score 0, default croc speed)
@@ -556,7 +502,7 @@ void game_restart(void) {
     gUiScore = 0;
 
     // Reset player state and position
-    player_init(&gPlayer, 16, 192, 16, 16);
+    player_init(&gPlayer, 30, 195, 16, 16);
 }
 
 // check if restart button was clicked (only valid when game over)
