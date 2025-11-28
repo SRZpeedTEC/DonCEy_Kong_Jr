@@ -136,8 +136,6 @@ void game_draw_static(const CP_Static* staticMap) {
     EndTextureMode();
 
     BeginDrawing();
-        //ClearBackground(BLACK);
-        // note: negative height to flip the render texture
         Rectangle src = (Rectangle){0, 0, (float)rt.texture.width, -(float)rt.texture.height};
         Rectangle dst = (Rectangle){0, 0, (float)VW * SCALE, (float)VH * SCALE};
         DrawTexturePro(rt.texture, src, dst, (Vector2){0, 0}, 0, WHITE);   

@@ -1,10 +1,10 @@
 #pragma once
 #include "../Game/static_map.h"
 
-#include "logic/player.h"
-#include "logic/crocodile.h"
-#include "logic/fruit.h"
-#include "logic/constants.h"
+#include "Logic/player.h"
+#include "Logic/crocodile.h"
+#include "Logic/fruit.h"
+#include "Logic/constants.h"
 
 
 // Forward declarations to avoid pulling heavy headers
