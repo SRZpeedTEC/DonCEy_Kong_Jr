@@ -4,6 +4,7 @@ import Messages.OutboundMessage;
 import Messages.EntityMessageFactory;
 import Utils.MsgType;
 
+// Factory class to create fruit-related messages
 public final class FruitFactory implements EntityMessageFactory {
     @Override public OutboundMessage spawn(byte variant, int x, int y) {
         byte[] p = new byte[5];

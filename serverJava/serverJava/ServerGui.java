@@ -20,12 +20,12 @@ public class ServerGui {
     // Position único (1..5)
     private final JComboBox<Integer> posCombo;
 
-    // Selección de contenedor
+    //container selection
     private enum Target { NONE, VINE, PLATFORM }
     private Target selectedTarget = Target.NONE;
     private int selectedIndex = -1;
 
-    // Botones acción
+    //actions
     private final JButton sendBtn;
     private final JButton deleteFruitBtn;
 
@@ -66,12 +66,12 @@ public class ServerGui {
         fruitRadio.addActionListener(e -> loadVariantsForFruit());
         loadVariantsForCroc(); // default
 
-        // Position único (1..5)
+        // Position
         posCombo = new JComboBox<>(new Integer[]{1,2,3,4,5});
         top.add(new JLabel("  Position:"));
         top.add(posCombo);
 
-        // Acciones
+        // Actions
         sendBtn = new JButton("Send");
         deleteFruitBtn = new JButton("Delete fruit");
 
@@ -83,7 +83,7 @@ public class ServerGui {
 
         frame.add(top, BorderLayout.NORTH);
 
-        // ---------- CENTER: listas de Vines / Platforms ----------
+        //list of vines and platforms
         JPanel center = new JPanel(new GridLayout(2, 1));
 
         // Vines
@@ -135,15 +135,15 @@ public class ServerGui {
             return;
         }
 
-        // Traducir slot -> clientId real del jugador
+      
         Integer playerClientId = server.getPlayerClientIdForSlot(slotIndex);
         if (playerClientId == null) {
             msg("No player connected in slot " + slotIndex);
             return;
         }
 
-        byte variant = resolveVariantCode();          // esto ya lo tienes
-        int pos = (Integer) posCombo.getSelectedItem(); // 1..5
+        byte variant = resolveVariantCode();          
+        int pos = (Integer) posCombo.getSelectedItem(); 
 
         switch (selectedTarget){
             case VINE -> {
@@ -180,7 +180,7 @@ public class ServerGui {
             return;
         }
 
-        int pos = (Integer) posCombo.getSelectedItem(); // 1..5
+        int pos = (Integer) posCombo.getSelectedItem(); 
 
         switch (selectedTarget){
             case VINE     -> server.removeFruitOnVineForClient(playerClientId, selectedIndex, pos);
@@ -189,7 +189,7 @@ public class ServerGui {
         }
     }
 
-    // --- helpers ---
+    
     private void loadVariantsForCroc(){
         variantCombo.removeAllItems();
         variantCombo.addItem("RED");
@@ -217,17 +217,23 @@ public class ServerGui {
         }
     }
 
+
+   
+    // Refresh the list of connected clients in the combo box
+    // This method clears the existing items and repopulates the combo box
+    // with the client IDs of currently connected players.
+
     private void refreshClients(){
         clientCombo.removeAllItems();
 
-        // Slot 1 (Player 1)
+        
         if (server.getPlayerClientIdForSlot(1) != null) {
-            clientCombo.addItem(1);   // representa "Player 1"
+            clientCombo.addItem(1);   
         }
 
-        // Slot 2 (Player 2)
+        
         if (server.getPlayerClientIdForSlot(2) != null) {
-            clientCombo.addItem(2);   // representa "Player 2"
+            clientCombo.addItem(2);   
         }
     }
 

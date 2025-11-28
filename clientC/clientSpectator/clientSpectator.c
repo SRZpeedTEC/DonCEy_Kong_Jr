@@ -16,7 +16,7 @@ static FrameHandler g_frameHandlers[256];
 
 static void on_spectator_state(const uint8_t* payloadPtr, uint32_t payloadLen)
 {
-    // Esperamos: 2+2+2+2+1 = 9 bytes
+    
     if (payloadLen < 9) {
         return;
     }
@@ -27,7 +27,7 @@ static void on_spectator_state(const uint8_t* payloadPtr, uint32_t payloadLen)
     int16_t vy = (int16_t)((payloadPtr[6] << 8) | payloadPtr[7]);
     uint8_t flags = payloadPtr[8];
 
-    // Aplicamos el estado al jugador local del espectador
+   
     game_apply_remote_state(x, y, vx, vy, flags);
 }
 

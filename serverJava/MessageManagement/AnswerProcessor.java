@@ -19,7 +19,7 @@ public class AnswerProcessor {
         this.messenger = new Messenger(server);
     }
 
-    // --- SPECTATE_REQUEST: adjuntar un espectador a un slot (1 o 2) ---
+    
     private void handleSpectateRequest(byte[] payload, Session sess) throws IOException {
         if (payload == null || payload.length < 1) {
             return;
@@ -34,7 +34,7 @@ public class AnswerProcessor {
                     + " failed to attach to slot " + desiredSlot + " (no player or full).");
             System.out.println("Disconnecting spectator " + spectatorId);
             
-            // Force disconnect by throwing an exception (will be caught in ClientHandler.run())
+            // Force disconnect by throwing an exception 
             throw new IOException("Failed to attach to player slot " + desiredSlot + " - slot may be full or player not found");
         }
     }
@@ -47,9 +47,7 @@ public class AnswerProcessor {
         int  gameId  = in.readInt();
         int  len     = in.readInt();
 
-        // 1) Mensajes con payload estructurado conocido
-
-        // --- PLAYER_PROPOSED (jugador envía su estado) ---
+        //Mensajes con payload estructurado conocido
         if (type == MsgType.PLAYER_PROPOSED) {
             int   tick  = in.readInt();
             short x     = in.readShort();
@@ -70,7 +68,7 @@ public class AnswerProcessor {
             return;
         }
 
-        // --- STATE_BUNDLE (TLVs que luego podrás parsear) ---
+        // --- STATE_BUNDLE ---
         if (type == MsgType.STATE_BUNDLE) {
             byte[] buf = (len > 0) ? in.readNBytes(len) : new byte[0];
             TLVParser tlv = new TLVParser(buf);
@@ -78,7 +76,7 @@ public class AnswerProcessor {
                 TLVParser.TLV t = tlv.next();
                 if (t == null) break;
                 if (t.type == MsgType.TLV_ENTITIES_CORR) {
-                    // futuro: parsear y mandar a espectadores
+                    
                 }
             }
             return;
@@ -113,7 +111,7 @@ public class AnswerProcessor {
             
             byte[] payload = in.readNBytes(len);
             
-            // Java uses int, not int16_t (that's C syntax)
+            
             int fruitX = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
             int fruitY = ((payload[2] & 0xFF) << 8) | (payload[3] & 0xFF);
             
@@ -153,7 +151,7 @@ public class AnswerProcessor {
             return;
         }
 
-        // --- SPECTATE_REQUEST (nuevo) ---
+        // --- SPECTATE_REQUEST  ---
         if (type == MsgType.SPECTATE_REQUEST) {
             byte[] payload = (len > 0) ? in.readNBytes(len) : new byte[0];
             handleSpectateRequest(payload, sess);
@@ -174,7 +172,7 @@ public class AnswerProcessor {
             // Clear all entities
             server.clearEntitiesForNewRound();
 
-            // Reset crocodile speed on server (will be handled by clients via GAME_RESTART message)
+            // Reset crocodile speed on server 
             server.resetCrocodileSpeed();
 
             // Broadcast restart to player + spectators
@@ -187,7 +185,7 @@ public class AnswerProcessor {
             return;
         }
 
-        // 2) Otros tipos: de momento saltamos el payload
+        
         if (len > 0) in.skipNBytes(len);
     }
 }

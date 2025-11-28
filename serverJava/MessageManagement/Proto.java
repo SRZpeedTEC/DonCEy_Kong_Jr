@@ -11,7 +11,7 @@ public final class Proto {
         out.writeByte(VERSION);
         out.writeByte(type);
         out.writeShort(0);            // reserved
-        out.writeInt(destClientId);   // o fromId/dest, como uses
+        out.writeInt(destClientId);   
         out.writeInt(gameId);
         out.writeInt(payloadLen);
     }

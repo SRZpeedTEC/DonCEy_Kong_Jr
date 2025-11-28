@@ -19,7 +19,7 @@ public class Messenger {
 
 
 
-    // A) INIT_STATIC (LEGACY: igual al cliente C actual)
+    // A) INIT_STATIC legacy (server -> client)
     public void sendInitStaticLegacy(int destClientId, DataOutputStream out) throws IOException {
         int nP = server.platforms.size(), nV = server.vines.size(),
             nE = server.crocodiles.size(),   nF = server.fruits.size();
@@ -117,7 +117,7 @@ public class Messenger {
 
         byte[] payload = baos.toByteArray();
 
-        // Header: dest = this session's clientId; gameId = 0 (or playerClientId if you want)
+        // Write the message header
         Proto.writeHeader(s.out(),
                         MsgType.SPECTATOR_STATE,
                         s.clientId(),
@@ -128,14 +128,14 @@ public class Messenger {
         s.out().flush();
     }
 
-    // --- CLIENT_ACK with role byte (1 = PLAYER, 2 = SPECTATOR) ---
+    // --- CLIENT_ACK ---
     public void sendClientAck(Session s, ClientRole role) throws IOException {
         byte roleByte = (role == ClientRole.PLAYER) ? (byte)1 : (byte)2;
 
-        // payload: 1 byte with the role
+        
         int payloadLen = 1;
 
-        // Header: type = CLIENT_ACK, dest = this client, gameId = 0 (or whatever you use)
+        
         Proto.writeHeader(
                 s.out(),
                 MsgType.CLIENT_ACK,

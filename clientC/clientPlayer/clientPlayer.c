@@ -43,7 +43,7 @@ static void on_remove_fruit(const uint8_t* p, uint32_t n){
     if (n < 4) return;
     int16_t x = (int16_t)((p[0]<<8) | p[1]);
     int16_t y = (int16_t)((p[2]<<8) | p[3]);
-    game_remove_fruit_at(x, y);  // << delega al módulo de juego
+    game_remove_fruit_at(x, y);  
 }
 
 
