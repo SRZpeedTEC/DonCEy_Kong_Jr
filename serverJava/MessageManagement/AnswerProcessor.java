@@ -27,7 +27,7 @@ public class AnswerProcessor {
     }
 
     private final GameServer server;
-
+    private final Messenger messenger;
 
     /**
      * Creates a new processor bound to a server instance.
@@ -117,7 +117,7 @@ public class AnswerProcessor {
                 TLVParser.TLV t = tlv.next();
                 if (t == null) break;
                 if (t.type == MsgType.TLV_ENTITIES_CORR) {
-                    // Reserved: entities correction handling (no-op in final build)
+                    // Reserved: entities correction handling 
                 }
             }
             return;

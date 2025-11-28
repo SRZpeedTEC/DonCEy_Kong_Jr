@@ -18,7 +18,7 @@ import serverJava.ClientRole;
  *
  */
 public class Messenger {
-    
+
     /** Owning game server providing authoritative state snapshots. */
     private final GameServer server;
     /** Factory for crocodile-related outbound messages. */
@@ -36,14 +36,12 @@ public class Messenger {
      * Sends the legacy INIT_STATIC frame (server → client) with
      * the full static geometry and current dynamic lists.
      *
-     * <p>Payload layout:</p>
-     * <pre>
+     * Payload layout:
      * playerRect(8B)
      * u16 nPlatforms, nPlatforms * rect(8B)
      * u16 nVines,     nVines     * rect(8B)
      * u16 nCrocs,     nCrocs     * rect(8B)
      * u16 nFruits,    nFruits    * rect(8B)
-     * </pre>
      *
      * @param destClientId destination client id
      * @param out stream to write to
@@ -112,10 +110,8 @@ public class Messenger {
     /**
      * Sends a request to remove a fruit at a given position.
      *
-     * <p>Payload layout (4 bytes):</p>
-     * <pre>
+     * Payload layout (4 bytes):
      * x: int16 (big-endian), y: int16 (big-endian)
-     * </pre>
      *
      * @param session destination session
      * @param x fruit X
@@ -160,7 +156,7 @@ public class Messenger {
     /**
      * Sends the current score to a client HUD.
      *
-     * <p>Payload layout: 4 bytes (int32).</p>
+     * Payload layout: 4 bytes (int32).
      *
      * @param s destination session
      * @param score score value
@@ -198,14 +194,12 @@ public class Messenger {
     /**
      * Sends a compact spectator snapshot (position, velocity, flags).
      *
-     * <p>Payload layout (9 bytes total):</p>
-     * <pre>
+     * Payload layout (9 bytes total):
      * x  : int16
      * y  : int16
      * vx : int16
      * vy : int16
      * f  : byte  (bitfield: 0x01 grounded, 0x02 justDied, 0x04 onVine, 0x08 betweenVines, etc.)
-     * </pre>
      *
      * @param s destination spectator session
      * @param x player x (int16)
@@ -247,12 +241,10 @@ public class Messenger {
     /**
      * Sends client acknowledgment with spectator slot availability per player.
      *
-     * <p>Payload layout (3 bytes):</p>
-     * <pre>
+     * Payload layout (3 bytes):
      * [0] roleByte: 0=rejected, 1=player, 2=spectator
      * [1] player1SpectatorCount 
      * [2] player2SpectatorCount 
-     * </pre>
      *
      * @param s session
      * @param role accepted role
