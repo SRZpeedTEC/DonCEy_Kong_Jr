@@ -5,7 +5,7 @@
 #include "constants.h"
 
 // number of frames between crocodile movement steps
-#define CROC_FRAME_DIV 3
+#define CROC_FRAME_DIV 5
 
 // internal base speed shared by all crocodiles
 static int g_crocBaseSpeed = 0;

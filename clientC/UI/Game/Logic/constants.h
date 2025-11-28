@@ -34,3 +34,7 @@
 
 #define MARIO_WIDTH  (MARIO_X2 - MARIO_X1)
 #define MARIO_HEIGHT (MARIO_Y2 - MARIO_Y1)
+
+
+//Movement speed divider for crocodiles 
+#define CROC_FRAME_DIV 5

@@ -98,7 +98,7 @@ int main(void) {
     bool shouldLaunchClient = false;  // flag to control when to actually launch
 
     Rectangle btnPlayer      = (Rectangle){  80, 150, 180, 50 };
-    Rectangle btnSpectator   = (Rectangle){ 340, 150, 180, 50 };
+    Rectangle btnSpectator   = (Rectangle){ 340, 150, 190, 50 };
     Rectangle btnSlot1       = (Rectangle){  80, 150, 180, 50 };
     Rectangle btnSlot2       = (Rectangle){ 340, 150, 180, 50 };
 
