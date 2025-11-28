@@ -45,6 +45,15 @@ public class ClientHandler extends Thread {
 
         // --- Mapa estático inicial ---
         messenger.sendInitStaticLegacy(clientId, out);
+
+        if (role == ClientRole.SPECTATOR) {
+            int speedLevel = server.getCrocodileSpeedLevel();
+            // Send CROC_SPEED_INCREASE message speedLevel times
+            for (int i = 0; i < speedLevel; i++) {
+                messenger.sendCrocSpeedIncrease(session);
+            }
+            session.log("Sent current crocodile speed level (" + speedLevel + ") to spectator");
+        }
     }
     
     public ClientRole getRole() {

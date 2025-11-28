@@ -141,6 +141,7 @@ public class AnswerProcessor {
             p.increaseLives();
             System.out.println("Player " + sess.clientId() + " won! Lives now: " + p.getLives());
             server.clearEntitiesForNewRound();
+            server.crocodileSpeedLevel++;
 
             byte lives = (byte) p.getLives();
 
