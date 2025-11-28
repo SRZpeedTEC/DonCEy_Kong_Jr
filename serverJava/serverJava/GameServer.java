@@ -10,11 +10,18 @@ import java.util.function.Consumer;
 import Utils.Rect;
 import Classes.Player.player;
 import serverJava.EntityState;
+import MessageManagement.Proto;
+import Utils.MsgType;
 
 public class GameServer {
 
     private final int port;
     private ServerSocket serverSocket;
+
+    private static final int MAX_PLAYERS = 2;
+    private static final int MAX_SPECTATORS_PER_PLAYER = 2;
+    private static final int MAX_TOTAL_SPECTATORS = MAX_PLAYERS * MAX_SPECTATORS_PER_PLAYER; // 4
+
 
     // Connected clients
     private final ConcurrentHashMap<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
@@ -195,6 +202,12 @@ public class GameServer {
         fruitStates.clear();
     }
 
+    public synchronized void cleanupOffScreenCrocodiles() {
+        // Remove crocodiles that are below the screen (y > 240)
+        crocodileStates.removeIf(c -> c.y > 240);
+        crocodiles.removeIf(r -> r.y() > 240);
+    }
+
 
     private Integer choosePlayerForSpectator() {
         Integer best = null;
@@ -295,6 +308,21 @@ public class GameServer {
         sendToPlayerGroup(playerId, h -> h.sendScoreUpdate(score));
     }
 
+    public void broadcastCrocSpeedIncreaseToGroup(int playerId) {
+        sendToPlayerGroup(playerId, ClientHandler::sendCrocSpeedIncrease);
+    }
+
+    public void broadcastGameRestartToGroup(int playerId) {
+        sendToPlayerGroup(playerId, ClientHandler::sendGameRestart);
+    }
+
+    public void resetCrocodileSpeed() {
+        // This resets the server-side crocodile speed tracking
+        // The actual speed is managed client-side, so we just need to ensure
+        // the server state is consistent
+        System.out.println("Crocodile speed reset to default");
+    }
+
 
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);
@@ -309,6 +337,19 @@ public class GameServer {
         javax.swing.SwingUtilities.invokeLater(() -> {
             new ServerGui(this).show();
         });
+
+        Thread cleanupThread = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(1000); // Clean up every second
+                    cleanupOffScreenCrocodiles();
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        }, "cleanup-thread");
+        cleanupThread.setDaemon(true);
+        cleanupThread.start();
 
         while (true) {
             Socket socket = serverSocket.accept();
@@ -343,6 +384,7 @@ public class GameServer {
             ClientRole role = null;
             Integer observedPlayerId = null;
 
+            // Check capacity BEFORE creating ClientHandler
             synchronized (this) {
                 if (wantsPlayer) {
                     // CLIENTE PIDE SER PLAYER
@@ -357,6 +399,7 @@ public class GameServer {
                         role = ClientRole.PLAYER;
                         observedPlayerId = null;
 
+                        // Reserve the slot immediately
                         if (freeSlot == 1) {
                             playerSlot1 = clientId;
                         } else {
@@ -375,36 +418,112 @@ public class GameServer {
                     if (players.isEmpty()) {
                         // Regla: debe existir al menos un player para aceptar spectators
                         System.out.println("Client " + clientId
-                                + " requested SPECTATOR but no players connected. Closing.");
+                                + " requested SPECTATOR but no players connected. Rejecting.");
                     } else {
-                        role = ClientRole.SPECTATOR;
-                        observedPlayerId = null;
-                        System.out.println("Client " + clientId
-                                + " requested SPECTATOR -> assigned SPECTATOR (pending selection)");
+                        // Count ALL connected spectators (from clients map)
+                        long totalSpectators = clients.values().stream()
+                                .filter(h -> h.getRole() == ClientRole.SPECTATOR)
+                                .count();
+
+                        if (totalSpectators >= MAX_TOTAL_SPECTATORS) {
+                            System.out.println("Client " + clientId
+                                    + " requested SPECTATOR but max spectators reached ("
+                                    + totalSpectators + "/" + MAX_TOTAL_SPECTATORS + "). Rejecting.");
+                        } else {
+                            // Additional check: At least one player slot must have room
+                            boolean hasAvailableSlot = false;
+                            
+                            for (ClientHandler playerHandler : players.values()) {
+                                int playerId = playerHandler.getClientId();
+                                List<ClientHandler> specs = spectatorsByPlayer.get(playerId);
+                                int currentSpecs = (specs == null) ? 0 : specs.size();
+                                
+                                if (currentSpecs < MAX_SPECTATORS_PER_PLAYER) {
+                                    hasAvailableSlot = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!hasAvailableSlot) {
+                                System.out.println("Client " + clientId
+                                        + " requested SPECTATOR but all player slots are full. Rejecting.");
+                            } else {
+                                role = ClientRole.SPECTATOR;
+                                observedPlayerId = null;
+                                System.out.println("Client " + clientId
+                                        + " requested SPECTATOR -> assigned SPECTATOR (pending selection) ("
+                                        + totalSpectators + "/" + MAX_TOTAL_SPECTATORS + ")");
+                            }
+                        }
                     }
                 }
             }
 
-            if (role == null) {
-                // No se pudo asignar rol (sin slots o sin players para espectear)
+            // Send CLIENT_ACK before creating ClientHandler
+            // This way capacity check connections get their answer without a handler
+            try {
+                DataOutputStream out = new DataOutputStream(
+                        new BufferedOutputStream(socket.getOutputStream()));
+
+                byte roleByte = (role != null) 
+                    ? (role == ClientRole.PLAYER ? (byte)1 : (byte)2) 
+                    : (byte)0;
+
+                Proto.writeHeader(out, MsgType.CLIENT_ACK, clientId, 0, 1);
+                out.writeByte(roleByte);
+                out.flush();
+
+                if (role == null) {
+                    // Rejected - close socket
+                    socket.close();
+                    continue;
+                }
+
+            } catch (IOException e) {
+                System.out.println("Failed to send CLIENT_ACK: " + e.getMessage());
                 try { socket.close(); } catch (IOException ignore) {}
+                
+                // If we reserved a player slot, free it
+                synchronized (this) {
+                    if (role == ClientRole.PLAYER) {
+                        if (Objects.equals(playerSlot1, clientId)) playerSlot1 = null;
+                        if (Objects.equals(playerSlot2, clientId)) playerSlot2 = null;
+                    }
+                }
                 continue;
             }
 
-            ClientHandler handler = new ClientHandler(clientId, socket, this, role, observedPlayerId);
+            // Now create the ClientHandler (it will send INIT_STATIC but not CLIENT_ACK)
+            ClientHandler handler;
+            try {
+                handler = new ClientHandler(clientId, socket, this, role, observedPlayerId);
+            } catch (IOException e) {
+                System.out.println("Failed to create ClientHandler: " + e.getMessage());
+                try { socket.close(); } catch (IOException ignore) {}
+                
+                // Free reserved slot
+                synchronized (this) {
+                    if (role == ClientRole.PLAYER) {
+                        if (Objects.equals(playerSlot1, clientId)) playerSlot1 = null;
+                        if (Objects.equals(playerSlot2, clientId)) playerSlot2 = null;
+                    }
+                }
+                continue;
+            }
+
             clients.put(clientId, handler);
 
             if (role == ClientRole.PLAYER) {
                 players.put(clientId, handler);
                 spectatorsByPlayer.putIfAbsent(clientId,
                         Collections.synchronizedList(new ArrayList<>()));
-            } else {
-                // SPECTATOR: se adjunta a un player cuando llega SPECTATE_REQUEST
             }
 
             handler.start();
             System.out.println("Client connected, id=" + clientId + " from " + socket.getRemoteSocketAddress());
         }
+
+        
 
     }
 

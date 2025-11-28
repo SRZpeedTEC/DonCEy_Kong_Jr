@@ -64,6 +64,11 @@ static void on_remove_fruit(const uint8_t* p, uint32_t n){
     game_remove_fruit_at(x, y);  // << delega al módulo de juego
 }
 
+static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    crocodile_increase_speed();
+}
+
 
 
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
@@ -99,6 +104,11 @@ static void on_respawn_win(const uint8_t* p, uint32_t n){
 static void on_game_over(const uint8_t* p, uint32_t n){
         (void)p; (void)n;
         game_over_event();
+    }
+
+static void on_game_restart(const uint8_t* p, uint32_t n){
+        (void)p; (void)n;
+        game_restart();
     }
 
 // ---- handlers ----
@@ -177,6 +187,9 @@ int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
     disp_register(CP_TYPE_GAME_OVER,              on_game_over);
     disp_register(CP_TYPE_LIVES_UPDATE,           on_lives_update);
     disp_register(CP_TYPE_SCORE_UPDATE,           on_score_update);
+    disp_register(CP_TYPE_CROC_SPEED_INCREASE, on_croc_speed_increase);
+    disp_register(CP_TYPE_GAME_RESTART, on_game_restart);
+
 
 
     CP_Header header;
@@ -279,4 +292,3 @@ done:
     net_cleanup();
     return 0;
 }
-

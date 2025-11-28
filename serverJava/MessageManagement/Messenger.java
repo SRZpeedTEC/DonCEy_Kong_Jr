@@ -148,4 +148,14 @@ public class Messenger {
         s.out().flush();
     }
 
+    public void sendCrocSpeedIncrease(Session session) throws IOException {
+        Proto.writeHeader(session.out(), MsgType.CROC_SPEED_INCREASE, session.clientId(), 0, 0);
+        session.out().flush();
+    }
+
+    public void sendGameRestart(Session session) throws IOException {
+        Proto.writeHeader(session.out(), MsgType.GAME_RESTART, session.clientId(), 0, 0);
+        session.out().flush();
+    }
+
 }

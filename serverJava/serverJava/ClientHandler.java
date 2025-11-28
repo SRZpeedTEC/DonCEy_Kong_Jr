@@ -41,8 +41,8 @@ public class ClientHandler extends Thread {
         this.answerProcessor = new AnswerProcessor(server);
         this.messenger       = new Messenger(server);
 
-        // --- ACK al conectar ---
-        messenger.sendClientAck(session, role);
+        // --- CLIENT_ACK is now sent by GameServer before creating ClientHandler ---
+        // So we don't send it here anymore
 
         // --- Mapa estático inicial ---
         messenger.sendInitStaticLegacy(clientId, out);
@@ -76,6 +76,14 @@ public class ClientHandler extends Thread {
                 //        ", flags=" + flags + ")");
         } catch (IOException e) {
             session.log("Error sending SPECTATOR_STATE: " + e.getMessage());
+        }
+    }
+
+    public void sendCrocSpeedIncrease() {
+        try {
+            messenger.sendCrocSpeedIncrease(session);
+        } catch (IOException e) {
+            session.log("Error CROC_SPEED_INCREASE: " + e.getMessage());
         }
     }
 
@@ -138,6 +146,14 @@ public class ClientHandler extends Thread {
             messenger.sendScoreUpdate(session, score);
         } catch (IOException e) {
             session.log("Error SCORE_UPDATE: " + e.getMessage());
+        }
+    }
+
+    public void sendGameRestart() {
+        try {
+            messenger.sendGameRestart(session);
+        } catch (IOException e) {
+            session.log("Error GAME_RESTART: " + e.getMessage());
         }
     }
 

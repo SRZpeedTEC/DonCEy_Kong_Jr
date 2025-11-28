@@ -20,7 +20,7 @@ public class AnswerProcessor {
     }
 
     // --- SPECTATE_REQUEST: adjuntar un espectador a un slot (1 o 2) ---
-    private void handleSpectateRequest(byte[] payload, Session sess) {
+    private void handleSpectateRequest(byte[] payload, Session sess) throws IOException {
         if (payload == null || payload.length < 1) {
             return;
         }
@@ -32,7 +32,10 @@ public class AnswerProcessor {
         if (!ok) {
             System.out.println("Spectator " + spectatorId
                     + " failed to attach to slot " + desiredSlot + " (no player or full).");
-            // Aquí podrías enviar un mensaje de error al cliente si quieres
+            System.out.println("Disconnecting spectator " + spectatorId);
+            
+            // Force disconnect by throwing an exception (will be caught in ClientHandler.run())
+            throw new IOException("Failed to attach to player slot " + desiredSlot + " - slot may be full or player not found");
         }
     }
 
@@ -145,6 +148,7 @@ public class AnswerProcessor {
 
             // HUD and respawn for everyone in the group
             server.broadcastLivesUpdateToGroup(sess.clientId(), lives);
+            server.broadcastCrocSpeedIncreaseToGroup(sess.clientId());
             server.broadcastRespawnWinToGroup(sess.clientId());
             return;
         }
@@ -153,6 +157,33 @@ public class AnswerProcessor {
         if (type == MsgType.SPECTATE_REQUEST) {
             byte[] payload = (len > 0) ? in.readNBytes(len) : new byte[0];
             handleSpectateRequest(payload, sess);
+            return;
+        }
+
+        // --- REQUEST_RESTART (player requests full game restart) ---
+        if (type == MsgType.REQUEST_RESTART) {
+            player p = server.getPlayerFromServer(sess.clientId());
+            if (p == null) return;
+
+            System.out.println("Player " + sess.clientId() + " requested game restart");
+
+            // Reset player state
+            p.setLives(3);
+            p.setScore(0);
+
+            // Clear all entities
+            server.clearEntitiesForNewRound();
+
+            // Reset crocodile speed on server (will be handled by clients via GAME_RESTART message)
+            server.resetCrocodileSpeed();
+
+            // Broadcast restart to player + spectators
+            server.broadcastGameRestartToGroup(sess.clientId());
+
+            // Send updated HUD
+            server.broadcastLivesUpdateToGroup(sess.clientId(), (byte) 3);
+            server.broadcastScoreUpdateToGroup(sess.clientId(), 0);
+
             return;
         }
 
