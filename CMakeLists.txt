@@ -50,7 +50,9 @@ set(SPECTATOR_SOURCES
 
 add_executable(spectator ${SPECTATOR_SOURCES})
 
+# ----------------------------------------------------------
 # 4b. Ejecutable launcher (UI con Raylib)
+# ----------------------------------------------------------
 set(LAUNCHER_SOURCES
     ${CLIENT_COMMON_SOURCES}
     "${CMAKE_SOURCE_DIR}/clientC/launcher/launcher.c"
@@ -94,7 +96,6 @@ if (WIN32)
   target_link_libraries(spectator PRIVATE ws2_32)
   target_link_libraries(launcher  PRIVATE ws2_32)
 
-
 else()
   if(APPLE)
     # --- macOS: usa raylib instalado con Homebrew ---
@@ -113,4 +114,14 @@ else()
     target_link_libraries(spectator PRIVATE ${RAYLIB_LIBRARIES})
     target_link_libraries(launcher  PRIVATE ${RAYLIB_LIBRARIES})
   endif()
+endif()
+
+# ----------------------------------------------------------
+# 7. Platform-specific settings for better executables
+# ----------------------------------------------------------
+if (WIN32)
+    # Hide console for launcher GUI on Windows
+    set_target_properties(launcher PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
 endif()
