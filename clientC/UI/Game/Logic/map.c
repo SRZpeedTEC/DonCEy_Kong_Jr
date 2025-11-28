@@ -4,7 +4,7 @@
 
 MapView map_view_build(void) {
     MapView v;
-    v.data = cp_get_static(); // may be NULL early; caller can handle later
+    v.data = cp_get_static();
     return v;
 }
 

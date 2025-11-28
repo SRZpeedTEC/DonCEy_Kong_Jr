@@ -26,7 +26,7 @@ static void on_spawn_croc(const uint8_t *p, uint32_t n){
     game_spawn_croc(variant, x, y);
 }
 
-
+// ---- spawn / remove fruit ----
 static void on_spawn_fruit(const uint8_t *p, uint32_t n){
     uint8_t variant = 0; int16_t x=0, y=0;
     if (n == 4) {
@@ -49,7 +49,7 @@ static void on_remove_fruit(const uint8_t* p, uint32_t n){
 
 
 
-
+// ---- Handle frames ----
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
 static FrameHandler g_frameHandlers[256];
 static void disp_register(uint8_t frameType, FrameHandler handlerFn)
@@ -75,6 +75,8 @@ static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
 }
 
 
+// ---- state bundle handler ----
+// receive payload of entities in tlv format
 static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
     TLVBuf tlvBuf; tlv_init(&tlvBuf,payloadPtr,payloadLen);
     uint32_t tick=0;
@@ -94,24 +96,23 @@ static void on_state_bundle(const uint8_t* payloadPtr, uint32_t payloadLen){
     }
 }
 
-// --- handlers de órdenes del server ---
+// --- handlers for specific events ---
 static void on_respawn_death(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    game_respawn_death();
+    game_respawn_death(); //respawn after death
 }
 
 static void on_respawn_win(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    game_respawn_win();
+    game_respawn_win();//respawn after win
 }
 
 static void on_game_over(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    game_over_event();
+    game_over_event();//set game over flag
 }
 
-
-
+// ---- update UI handlers ----
 static void on_lives_update(const uint8_t* p, uint32_t n){
     if (n >= 1) game_set_ui_lives(p[0]);
 }
@@ -125,15 +126,16 @@ static void on_score_update(const uint8_t* p, uint32_t n){
 
 static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    crocodile_increase_speed();
+    crocodile_increase_speed();//increase crocodile speed after a win
 }
 
 static void on_game_restart(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
-    game_restart();
+    game_restart();//restart game after a game over
 }
 
-// ---- envío de propuesta (cliente -> server) ----
+// ---- send the player proposed ----
+//receive proposed state of the player (socket connected, clientId, position, flag) from game and send to server
 static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
 {
     uint8_t outBuf[4+2+2+2+2+1];
@@ -146,6 +148,7 @@ static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, 
     return cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, sizeof outBuf) ? 1 : 0;
 }
 
+// ---- send notifications to server ----
 static int send_notify_death_collision(int socketFd, uint32_t clientId)
 {
     return cp_send_frame(socketFd, CP_TYPE_NOTIFY_DEATH_COLLISION, clientId, 0, NULL, 0) ? 1 : 0;
@@ -165,6 +168,7 @@ static int send_notify_fruit_pick(int socketFd, uint32_t clientId, int16_t fruit
     return cp_send_frame(socketFd, CP_TYPE_NOTIFY_FRUIT_PICK, clientId, 0, buf, sizeof(buf)) ? 1 : 0;
 }
 
+//sent request to restart the game after game over
 static int send_request_restart(int socketFd, uint32_t clientId)
 {
     return cp_send_frame(socketFd, CP_TYPE_REQUEST_RESTART, clientId, 0, NULL, 0) ? 1 : 0;
@@ -217,15 +221,15 @@ int run_player_client(const char* ip, uint16_t port)
 
     // ACK
     CP_Header header;
-    uint8_t roleByte = 0;
+    uint8_t roleByte = 0;// set role for player - spectator
 
-    // Lee ACK
+    // read ACK
     if (!cp_read_header(socketFd, &header) || header.type != CP_TYPE_CLIENT_ACK) {
         fprintf(stderr, "Bad ACK (expected CLIENT_ACK)\n");
         goto done;
     }
 
-    // Leer payload: debe tener al menos 1 byte (el rol)
+    // read payload, get role byte as minimun
     if (header.payloadLen > 0) {
         uint8_t* payload = (uint8_t*)malloc(header.payloadLen);
         if (!payload) goto done;
@@ -235,14 +239,14 @@ int run_player_client(const char* ip, uint16_t port)
             goto done;
         }
 
-        roleByte = payload[0];   // primer byte = rol
+        roleByte = payload[0];   // first byte = role
         free(payload);
     } else {
         fprintf(stderr, "CLIENT_ACK without payload (role byte missing)\n");
         goto done;
     }
 
-    // Este ejecutable espera ser PLAYER (roleByte == 1)
+    // if role is not PLAYER, close
     if (roleByte != 1) {
         fprintf(stderr,
                 "Server assigned role %u (expected PLAYER=1). Closing.\n",
@@ -251,12 +255,12 @@ int run_player_client(const char* ip, uint16_t port)
     }
 
     // INIT_STATIC
-    // Verifica header
+    // verify header
     if (!cp_read_header(socketFd,&header) || header.type!=CP_TYPE_INIT_STATIC){
         fprintf(stderr,"Expected INIT_STATIC\n"); goto done;
     } 
 
-    // Lee payload
+    // read payload
     else {
         uint8_t* payloadBuf=(uint8_t*)malloc(header.payloadLen);
         if (!payloadBuf || net_read_n(socketFd,payloadBuf,header.payloadLen)<=0){ free(payloadBuf); goto done; }
@@ -266,7 +270,7 @@ int run_player_client(const char* ip, uint16_t port)
 
 
 
-    // UI
+    // Draw the map static and init game
     game_init(256,240,3);
     game_set_bg("clientC/UI/Sprites/FONDO1.png", 0.40f);
 
@@ -277,52 +281,62 @@ int run_player_client(const char* ip, uint16_t port)
     // Main loop Game
     while (!WindowShouldClose()){
 
-        // Se revisa si hay datos del servidor
-
+        // peek the socket connection with the server
         if (net_peek(socketFd)){
             
-            // Si no hay header, rompe
+            // not header -> break
             if (!cp_read_header(socketFd,&header)) break;
             uint8_t* payloadBuf = (header.payloadLen)? (uint8_t*)malloc(header.payloadLen): NULL;
-            
             
             if (header.payloadLen && net_read_n(socketFd,payloadBuf,header.payloadLen)<=0){ free(payloadBuf); break; }
             disp_handle(header.type, payloadBuf, header.payloadLen);
             free(payloadBuf);
-
-
         }
 
-        ProposedState proposedState;
+            ProposedState proposedState;
         game_update_and_get_proposal(cp_get_static(), &proposedState);
 
+        // Check if the player just died this frame and notify the server
         if (game_consume_death_event()) {
             send_notify_death_collision(socketFd, clientId);
         }
+
+        // Check if the player just won this frame and notify the server
         if (game_consume_win_event()) {
             send_notify_victory(socketFd, clientId);
         }
 
+        // Check if a fruit was collected this frame and notify the server
         int16_t fruitX, fruitY;
         if (game_consume_fruit_event(&fruitX, &fruitY)) {
             send_notify_fruit_pick(socketFd, clientId, fruitX, fruitY);
         }
 
-        // Check if restart button was clicked (only works when game over)
+        // Check if the restart button was clicked (only works when the game is over)
         if (game_check_restart_clicked()) {
             send_request_restart(socketFd, clientId);
         }
 
-        send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);
+        // Send the player's proposed state (position, velocity, flags) to the server
+        send_player_proposed(
+            socketFd,
+            clientId,
+            tick++,
+            proposedState.x,
+            proposedState.y,
+            proposedState.vx,
+            proposedState.vy,
+            proposedState.flags
+        );
 
-        // debug: build entities TLV and show basic info (no network yet)
+        // Debug: build an entities TLV buffer with crocodiles/fruits, just to inspect locally
         uint8_t entitiesBuf[512];
         size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
         if (entitiesLen > 0) {
-            //fprintf(stdout, "ENTITIES_TLV len = %zu\n", entitiesLen); for debug only
-            (void)entitiesLen;
+            (void)entitiesLen; // suppress unused-variable warning when debug print is disabled
         }
         
+        // Draw the static map and entities on screen
         game_draw_static(cp_get_static());
     }
 
