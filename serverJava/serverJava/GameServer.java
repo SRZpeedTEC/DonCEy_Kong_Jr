@@ -459,6 +459,7 @@ public class GameServer {
 
             // Send CLIENT_ACK before creating ClientHandler
             // This way capacity check connections get their answer without a handler
+            // For spectators, include per-slot availability info
             try {
                 DataOutputStream out = new DataOutputStream(
                         new BufferedOutputStream(socket.getOutputStream()));
@@ -467,8 +468,35 @@ public class GameServer {
                     ? (role == ClientRole.PLAYER ? (byte)1 : (byte)2) 
                     : (byte)0;
 
-                Proto.writeHeader(out, MsgType.CLIENT_ACK, clientId, 0, 1);
+                // Gather slot info for spectators
+                int player1SpecCount = 0;
+                int player2SpecCount = 0;
+                boolean player1Active = false;
+                boolean player2Active = false;
+
+                synchronized (this) {
+                    // Check player slot 1
+                    if (playerSlot1 != null && clients.containsKey(playerSlot1)) {
+                        player1Active = true;
+                        List<ClientHandler> specs1 = spectatorsByPlayer.get(playerSlot1);
+                        player1SpecCount = (specs1 == null) ? 0 : specs1.size();
+                    }
+
+                    // Check player slot 2
+                    if (playerSlot2 != null && clients.containsKey(playerSlot2)) {
+                        player2Active = true;
+                        List<ClientHandler> specs2 = spectatorsByPlayer.get(playerSlot2);
+                        player2SpecCount = (specs2 == null) ? 0 : specs2.size();
+                    }
+                }
+
+                // Send extended CLIENT_ACK with slot info
+                // Payload: [roleByte, player1Count, player2Count]
+                // If player inactive, count is 255
+                Proto.writeHeader(out, MsgType.CLIENT_ACK, clientId, 0, 3);
                 out.writeByte(roleByte);
+                out.writeByte(player1Active ? player1SpecCount : 255);
+                out.writeByte(player2Active ? player2SpecCount : 255);
                 out.flush();
 
                 if (role == null) {
