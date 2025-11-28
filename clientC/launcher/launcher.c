@@ -88,7 +88,7 @@ int main(void) {
     char ip[32]     = "127.0.0.1";
     char portStr[8] = "9090";
 
-    int selectedRole = 0;   // 0 = none, 1 = player, 2 = spectator
+    int selectedRole = 0;   // 0 = none, 1 = player, 2 = spectator 
     int launcherStep = 0;   // 0 = elegir rol, 1 = elegir slot de spectator
     int desiredSlot  = 1;   // 1 o 2 (por defecto Player 1)
 
