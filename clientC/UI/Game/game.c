@@ -217,6 +217,8 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     // build world view (map data + bounds)
     MapView mv = map_view_build();
 
+
+
     //update win state based on player position
     game_check_win_condition();
 
@@ -225,8 +227,8 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
         player_mark_dead(&gPlayer);  // unificado
     }
 
+    gPlayer.betweenVines = player_between_vines(&gPlayer, &mv);
     
-
 
     // run physics only if player is alive
     if (!player_is_dead(&gPlayer)) {
@@ -235,6 +237,8 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
         for (int i = 0; i < MAX_CROCS; ++i) {
             crocodile_update(&gCrocs[i], &mv);
         }
+
+        
     
     if (player_pick_fruits(&gPlayer, gFruits, MAX_FRUITS))
     {
@@ -256,12 +260,16 @@ void game_update_and_get_proposal(const CP_Static* staticMap, ProposedState* out
     out->vx = gPlayer.vx;
     out->vy = gPlayer.vy;
 
+    
+
     // flags:
     // bit 0 -> grounded (on floor or platform)
     // bit 1 -> just died this frame (one–shot event)
     uint8_t flags = 0;
     if (gPlayer.grounded) flags |= 0x01;
     if (gPlayer.justDied) flags |= 0x02;  // lee el campo, NO llames player_just_died aquí
+    if (gPlayer.onVine)       flags |= 0x04;   
+    if (gPlayer.betweenVines) flags |= 0x08;
     out->flags = flags;
 
 }
@@ -348,11 +356,12 @@ void game_apply_remote_state(int16_t x, int16_t y, int16_t vx, int16_t vy, uint8
     
     gPlayer.grounded = (flags & 0x01) != 0;
 
-    if (flags & 0x02) {
-        
+    if (flags & 0x02) {       
         player_mark_dead(&gPlayer);
-
     }
+
+    gPlayer.onVine       = (flags & 0x04) != 0;   
+    gPlayer.betweenVines = (flags & 0x08) != 0;   
 }
 
 // Update dynamic entities for the spectator (no input, no local player physics)
@@ -371,6 +380,9 @@ void game_update_spectator(const CP_Static* staticMap) {
     for (int i = 0; i < MAX_CROCS; ++i) {
         crocodile_update(&gCrocs[i], &mv);
     }
+
+    gPlayer.betweenVines = player_between_vines(&gPlayer, &mv);
+    gPlayer.onVine = player_touching_vine(&gPlayer, &mv);
 }
 
 void game_spawn_croc(uint8_t variant, int16_t x, int16_t y) {

@@ -186,6 +186,9 @@ static Texture2D choose_jr_texture(const Player* p, JrVisualState* outState) {
                 default:return texJrWalk2;
             }
 
+        case JR_VIS_BETWEEN_VINES:
+            return texJrBetweenVines;
+
         case JR_VIS_CLIMB:
             jrClimbCounter++;
             if (jrClimbCounter >= CLIMB_SPEED) {
@@ -193,6 +196,8 @@ static Texture2D choose_jr_texture(const Player* p, JrVisualState* outState) {
                 jrClimbFrame = (jrClimbFrame + 1) % CLIMB_FRAMES;
             }
             return (jrClimbFrame == 0) ? texJrClimb0 : texJrClimb1;
+
+        
 
         case JR_VIS_JUMP:
             // Reset walk animation when leaving ground
@@ -203,8 +208,7 @@ static Texture2D choose_jr_texture(const Player* p, JrVisualState* outState) {
         case JR_VIS_FALL:
             return texJrFall;
 
-        case JR_VIS_BETWEEN_VINES:
-            return texJrBetweenVines;
+        
 
         case JR_VIS_IDLE:
         default:
