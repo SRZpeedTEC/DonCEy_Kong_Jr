@@ -125,8 +125,8 @@ int main(void) {
     bool player1Active = false;
     bool player2Active = false;
 
-    Rectangle btnPlayer      = (Rectangle){  80, 150, 180, 50 };
-    Rectangle btnSpectator   = (Rectangle){ 340, 150, 190, 50 };
+    Rectangle btnPlayer      = (Rectangle){  80, 150, 220, 50 };
+    Rectangle btnSpectator   = (Rectangle){ 340, 150, 220, 50 };
     Rectangle btnSlot1       = (Rectangle){  80, 150, 220, 50 };
     Rectangle btnSlot2       = (Rectangle){ 340, 150, 220, 50 };
 
@@ -153,10 +153,10 @@ int main(void) {
                         shouldLaunchClient = true;
                     } else if (cap == 0) {
                         showErrorMessage = 1;
-                        strcpy(errorText, "Max players reached.\nNo more PLAYER slots available.");
+                        strcpy(errorText, "Máximo de jugadores alcanzados.\nNo hay más espacios para JUGADORES.");
                     } else {
                         showErrorMessage = 1;
-                        strcpy(errorText, "Could not connect to server.");
+                        strcpy(errorText, "No se pudo conectar al servidor.");
                     }
                 }
 
@@ -176,11 +176,11 @@ int main(void) {
                         if (!hasAvailableSlot && !player1Active && !player2Active) {
                             // No players online
                             showErrorMessage = 1;
-                            strcpy(errorText, "No players online.\nWait for a player to connect.");
+                            strcpy(errorText, "No hay jugadores en línea.\nEspera a que un jugador se conecte.");
                         } else if (!hasAvailableSlot) {
                             // All slots full
                             showErrorMessage = 1;
-                            strcpy(errorText, "All spectator slots full.\nTry again later.");
+                            strcpy(errorText, "Todos los espacios para espectadores están llenos.\nIntenta más tarde.");
                         } else {
                             // At least one slot available - proceed
                             selectedRole = 2;
@@ -189,10 +189,10 @@ int main(void) {
                         }
                     } else if (cap == 0) {
                         showErrorMessage = 1;
-                        strcpy(errorText, "Server rejected spectator.\nCapacity reached.");
+                        strcpy(errorText, "El servidor rechazó al espectador.\nCapacidad alcanzada.");
                     } else {
                         showErrorMessage = 1;
-                        strcpy(errorText, "Could not connect to server.");
+                        strcpy(errorText, "No se pudo conectar al servidor.");
                     }
                 }
             } else if (launcherStep == 1 && selectedRole == 2) {
@@ -224,13 +224,13 @@ int main(void) {
         if (launcherStep == 0) {
             // Screen: choose role
             DrawRectangleRec(btnPlayer, DARKGREEN);
-            DrawText("Join as PLAYER", btnPlayer.x + 10, btnPlayer.y + 15, 18, RAYWHITE);
+            DrawText("Entrar como jugador", btnPlayer.x + 10, btnPlayer.y + 15, 18, RAYWHITE);
 
             DrawRectangleRec(btnSpectator, DARKBLUE);
-            DrawText("Join as SPECTATOR", btnSpectator.x + 10, btnSpectator.y + 15, 18, RAYWHITE);
+            DrawText("Entrar como espectador", btnSpectator.x + 10, btnSpectator.y + 15, 18, RAYWHITE);
         } else if (launcherStep == 1 && selectedRole == 2) {
             // Screen: choose player to spectate
-            DrawText("Select player to spectate:", 80, 120, 20, RAYWHITE);
+            DrawText("Selecciona jugador para espectar:", 80, 120, 20, RAYWHITE);
 
             // Player 1 slot button
             bool slot1Available = player1Active && player1SpecCount < 2;
@@ -243,14 +243,14 @@ int main(void) {
             DrawRectangleRec(btnSlot1, slot1Color);
             
             if (!player1Active) {
-                DrawText("PLAYER 1: OFFLINE", btnSlot1.x + 10, btnSlot1.y + 10, 14, GRAY);
+                DrawText("JUGADOR 1: DESCONECTADO", btnSlot1.x + 10, btnSlot1.y + 10, 14, GRAY);
             } else if (slot1Full) {
                 char buf[64];
-                snprintf(buf, sizeof(buf), "PLAYER 1 (FULL %d/2)", player1SpecCount);
+                snprintf(buf, sizeof(buf), "JUGADOR 1 (LLENO %d/2)", player1SpecCount);
                 DrawText(buf, btnSlot1.x + 10, btnSlot1.y + 15, 14, GRAY);
             } else {
                 char buf[64];
-                snprintf(buf, sizeof(buf), "Spectate PLAYER 1 (%d/2)", player1SpecCount);
+                snprintf(buf, sizeof(buf), "Espectar JUGADOR 1 (%d/2)", player1SpecCount);
                 DrawText(buf, btnSlot1.x + 10, btnSlot1.y + 15, 14, RAYWHITE);
             }
 
@@ -265,14 +265,14 @@ int main(void) {
             DrawRectangleRec(btnSlot2, slot2Color);
             
             if (!player2Active) {
-                DrawText("PLAYER 2: OFFLINE", btnSlot2.x + 10, btnSlot2.y + 10, 14, GRAY);
+                DrawText("JUGADOR 2: DESCONECTADO", btnSlot2.x + 10, btnSlot2.y + 10, 14, GRAY);
             } else if (slot2Full) {
                 char buf[64];
-                snprintf(buf, sizeof(buf), "PLAYER 2 (FULL %d/2)", player2SpecCount);
+                snprintf(buf, sizeof(buf), "JUGADOR 2 (LLENO %d/2)", player2SpecCount);
                 DrawText(buf, btnSlot2.x + 10, btnSlot2.y + 15, 14, GRAY);
             } else {
                 char buf[64];
-                snprintf(buf, sizeof(buf), "Spectate PLAYER 2 (%d/2)", player2SpecCount);
+                snprintf(buf, sizeof(buf), "Espectar JUGADOR 2 (%d/2)", player2SpecCount);
                 DrawText(buf, btnSlot2.x + 10, btnSlot2.y + 15, 14, RAYWHITE);
             }
         }
@@ -286,7 +286,7 @@ int main(void) {
             DrawRectangle(boxX, boxY, boxW, boxH, (Color){80, 0, 0, 255});
             DrawRectangleLines(boxX, boxY, boxW, boxH, RED);
             DrawText(errorText, boxX + 10, boxY + 10, 16, RAYWHITE);
-            DrawText("Click anywhere to dismiss", boxX + 10, boxY + 55, 14, GRAY);
+            DrawText("Haz clic en cualquier lugar para cerrar", boxX + 10, boxY + 55, 14, GRAY);
         }
         EndDrawing();
         
