@@ -47,7 +47,7 @@ public class GameServer {
     public final List<Rect> crocodiles = new ArrayList<>();
     public final List<Rect> fruits     = new ArrayList<>();
 
-    // nuevas (para sincronizar espectadores tarde)
+  
     public final List<EntityState> crocodileStates = new ArrayList<>();
     public final List<EntityState> fruitStates     = new ArrayList<>();
 
@@ -68,7 +68,7 @@ public class GameServer {
         initLevel();
     }
 
-    // ---- Your initial game board ----
+    // ---- initial game board ----
     private void initLevel() {
         // grass platforms
         platforms.add(new Rect(  1, 215,  71, 8));
@@ -105,10 +105,10 @@ public class GameServer {
         vines.add(new Rect(156,  33,  2,   7));
         vines.add(new Rect(108,  33,  2,  15));
 
-        //player = new Rect(25, 190, 16, 16);
+        
     }
 
-    // Optional getters (you can keep them or remove them; Messenger uses the public fields)
+    // Optional getters 
     public List<Rect> getPlatforms() { return platforms; }
     public List<Rect> getVines()     { return vines; }
     public List<Rect> getWaters()    { return waters; }
@@ -235,10 +235,10 @@ public class GameServer {
     public synchronized boolean attachSpectatorToSlot(int spectatorClientId, int slotIndex) {
         ClientHandler spectator = clients.get(spectatorClientId);
         if (spectator == null) {
-            return false; // el cliente ya no existe
+            return false; // no such client
         }
         if (spectator.getRole() != ClientRole.SPECTATOR) {
-            return false; // solo espectadores pueden adjuntarse
+            return false; // not a spectator
         }
 
         Integer targetPlayerId = null;
@@ -247,11 +247,11 @@ public class GameServer {
         } else if (slotIndex == 2) {
             targetPlayerId = playerSlot2;
         } else {
-            return false; // slot inválido
+            return false; // invalid slot index
         }
 
         if (targetPlayerId == null) {
-            // no hay player en ese slot aún
+            // no hay player en ese slot
             return false;
         }
 
@@ -260,7 +260,7 @@ public class GameServer {
                         k -> Collections.synchronizedList(new ArrayList<>()));
 
         if (specs.size() >= 2) {
-            // ya tiene 2 espectadores
+            // slot full
             return false;
         }
 
@@ -326,7 +326,7 @@ public class GameServer {
         serverSocket = new ServerSocket(port);
         System.out.println("Server listening on port " + port);
 
-        // Start admin console (if you still use text commands)
+        // Start admin console 
         Thread admin = new Thread(this::adminLoop, "admin-loop");
         admin.setDaemon(true);
         admin.start();
@@ -355,7 +355,7 @@ public class GameServer {
 
             int clientId = idGen.getAndIncrement();
 
-            // 1) Leer el rol solicitado: 1 = PLAYER, 2 = SPECTATOR
+            // Read requested role byte
             int requestedRoleRaw;
             try {
                 requestedRoleRaw = socket.getInputStream().read();
@@ -382,10 +382,10 @@ public class GameServer {
             ClientRole role = null;
             Integer observedPlayerId = null;
 
-            // Check capacity BEFORE creating ClientHandler
+            // Check capacity before creating ClientHandler
             synchronized (this) {
                 if (wantsPlayer) {
-                    // CLIENTE PIDE SER PLAYER
+                    // client asks to be player
                     Integer freeSlot = null;
                     if (playerSlot1 == null) {
                         freeSlot = 1;
@@ -407,14 +407,14 @@ public class GameServer {
                         System.out.println("Client " + clientId
                                 + " requested PLAYER -> assigned PLAYER in slot " + freeSlot);
                     } else {
-                        // no hay slot de player libre
+                        
                         System.out.println("Client " + clientId
                                 + " requested PLAYER but no slot free. Closing.");
                     }
                 } else if (wantsSpectator) {
-                    // CLIENTE PIDE SER SPECTATOR
+                    // client asks to be spectator
                     if (players.isEmpty()) {
-                        // Regla: debe existir al menos un player para aceptar spectators
+                        // there must be at least one player
                         System.out.println("Client " + clientId
                                 + " requested SPECTATOR but no players connected. Rejecting.");
                     } else {
@@ -519,7 +519,7 @@ public class GameServer {
                 continue;
             }
 
-            // Now create the ClientHandler (it will send INIT_STATIC but not CLIENT_ACK)
+            // Now create the ClientHandler 
             ClientHandler handler;
             try {
                 handler = new ClientHandler(clientId, socket, this, role, observedPlayerId);
@@ -557,16 +557,16 @@ public class GameServer {
     public synchronized void removeClient(int clientId) {
         ClientHandler handler = clients.remove(clientId);
         if (handler == null) {
-            return; // ya no existe
+            return; // already removed
         }
 
         System.out.println("Client " + clientId + " disconnected");
 
         if (handler.getRole() == ClientRole.PLAYER) {
-            // 1) Quitar de mapa de players
+            // quit this player
             players.remove(clientId);
 
-            // 2) Liberar slot si este player ocupaba uno
+            
             if (Objects.equals(playerSlot1, clientId)) {
                 playerSlot1 = null;
                 System.out.println("Freed player slot 1");
@@ -576,7 +576,7 @@ public class GameServer {
                 System.out.println("Freed player slot 2");
             }
 
-            // 3) Quitar y/o desenganchar espectadores de este player
+            
             var specs = spectatorsByPlayer.remove(clientId);
             if (specs != null) {
                 for (ClientHandler s : specs) {
@@ -589,7 +589,7 @@ public class GameServer {
             }
 
         } else { // SPECTATOR
-            // Quitar este spectator de cualquier lista de spectators
+            
             for (var entry : spectatorsByPlayer.entrySet()) {
                 List<ClientHandler> list = entry.getValue();
                 if (list != null) {
@@ -609,13 +609,13 @@ public class GameServer {
 
 
     public void sendToPlayerGroup(int playerId, Consumer<ClientHandler> action) {
-    // jugador principal
+    //main player
         ClientHandler player = clients.get(playerId);
         if (player != null) {
             action.accept(player);
         }
 
-        // espectadores
+        //spectators
         List<ClientHandler> specs = spectatorsByPlayer.get(playerId);
         if (specs != null) {
             for (ClientHandler s : specs) {
@@ -624,6 +624,9 @@ public class GameServer {
         }
     }
 
+    // Broadcast player state to all spectators observing this player
+    //param playerClientId The client ID of the player whose state is being broadcasted
+    //returns void
     public void broadcastPlayerStateToSpectators(int playerClientId, short x, short y, short vx, short vy, byte flags) {
         List<ClientHandler> specs = spectatorsByPlayer.get(playerClientId);
         if (specs == null || specs.isEmpty()) return;
@@ -632,6 +635,11 @@ public class GameServer {
             spectator.sendSpectatorState(x, y, vx, vy, flags);
         }
     }
+
+    // Helper methods to spawn/remove entities on vines/platforms for a specific client
+    // These methods calculate the actual (x,y) coordinates based on vine/platform index and position
+    // then send the appropriate spawn/remove message to the specified client
+
 
     public void spawnCrocOnVineForClient(int clientId, int vineIndex, byte variant, int pos){
         Rect v = vines.get(vineIndex);
@@ -654,7 +662,7 @@ public class GameServer {
     public void spawnCrocOnPlatformForClient(int clientId, int platIndex, byte variant, int pos){
         Rect p = platforms.get(platIndex);
         int x = quantizeCenterX(p, pos);
-        int y = p.y() - 8; // ajusta si quieres el centro: p.y()+p.h()/2
+        int y = p.y() - 8; 
         sendToPlayerGroup(clientId, h -> h.sendSpawnCroc(variant, x, y));
         crocodiles.add(new Rect(x, y, 8, 8));
         crocodileStates.add(new EntityState(variant, x, y));
@@ -702,7 +710,6 @@ public class GameServer {
     }
 
     static int centerXOn(Rect vine, int entityW) {
-        // centro en X de la liana menos mitad del ancho de la entidad
         return vine.x() + (vine.w() - entityW) / 2;
     }
 

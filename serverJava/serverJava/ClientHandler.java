@@ -41,8 +41,7 @@ public class ClientHandler extends Thread {
         this.answerProcessor = new AnswerProcessor(server);
         this.messenger       = new Messenger(server);
 
-        // --- CLIENT_ACK is now sent by GameServer before creating ClientHandler ---
-        // So we don't send it here anymore
+      
 
         // --- Mapa estático inicial ---
         messenger.sendInitStaticLegacy(clientId, out);
@@ -162,17 +161,16 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             while (true) {
-                // Your existing message loop
+                
                 answerProcessor.processFrame(in, session);
-                // For example, AnswerProcessor could decode "spawn crocodile at (x,y)"
-                // and ask GameServer (via server) to broadcast that to players.
+                
             }
         } catch (Exception e) {
             session.log("disconnect: " + e.getMessage());
         } finally {
             try { socket.close(); } catch (IOException ignore) {}
 
-            // <<< this is the important line: call through the server reference
+            
             server.removeClient(clientId);
         }
     }

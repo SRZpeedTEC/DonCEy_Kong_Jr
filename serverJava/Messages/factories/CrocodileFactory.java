@@ -4,6 +4,7 @@ import Messages.OutboundMessage;
 import Messages.EntityMessageFactory;
 import Utils.MsgType;
 
+// Factory class to create crocodile-related messages
 public final class CrocodileFactory implements EntityMessageFactory {
     @Override public OutboundMessage spawn(byte variant, int x, int y) {
         // payload: [variant:1][x:i16][y:i16] (big-endian)
