@@ -30,8 +30,7 @@ bool player_touching_vine(const Player* player, const MapView* map);
 
 // check if there is at least one vine to the left and one to the right
 // at roughly the same vertical range as the player
-bool player_between_vines(const Player* player,
-                          const MapView* map);
+bool player_between_vines(const Player* player, const MapView* map);
 
 // find the index of the vine the player is currently overlapping
 int collision_find_current_vine_index(const Player* player, const MapView* map);
@@ -49,3 +48,4 @@ bool player_hits_water(const Player* player, const MapView* map);
 bool player_touching_mario(const Player* player);
 
 bool player_pick_fruits(Player* player, Fruit* fruits, int count);
+

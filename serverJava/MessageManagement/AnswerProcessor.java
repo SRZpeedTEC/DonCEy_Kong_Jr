@@ -49,7 +49,7 @@ public class AnswerProcessor {
 
         // 1) Mensajes con payload estructurado conocido
 
-        // --- PLAYER_PROPOSED (jugador envía su estado) ---
+        // PLAYER_PROPOSED 
         if (type == MsgType.PLAYER_PROPOSED) {
             int   tick  = in.readInt();
             short x     = in.readShort();
@@ -187,7 +187,7 @@ public class AnswerProcessor {
             return;
         }
 
-        // 2) Otros tipos: de momento saltamos el payload
+        
         if (len > 0) in.skipNBytes(len);
     }
 }
