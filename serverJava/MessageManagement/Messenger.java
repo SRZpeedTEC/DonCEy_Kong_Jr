@@ -128,14 +128,30 @@ public class Messenger {
         s.out().flush();
     }
 
-    // --- CLIENT_ACK ---
+    // --- CLIENT_ACK with role byte and optional slot info ---
     public void sendClientAck(Session s, ClientRole role) throws IOException {
-        byte roleByte = (role == ClientRole.PLAYER) ? (byte)1 : (byte)2;
+        sendClientAck(s, role, 0, 0, false, false);
+    }
 
-        
-        int payloadLen = 1;
+    // Extended CLIENT_ACK with slot availability for spectators
+    public void sendClientAck(Session s, ClientRole role, 
+                             int player1SpecCount, int player2SpecCount,
+                             boolean player1Active, boolean player2Active) throws IOException {
+        byte roleByte = 0;
+        if (role == ClientRole.PLAYER) {
+            roleByte = 1;
+        } else if (role == ClientRole.SPECTATOR) {
+            roleByte = 2;
+        }
+        // roleByte = 0 means rejected
 
-        
+        // Payload format for spectators:
+        // Byte 0: roleByte (0=rejected, 1=player, 2=spectator)
+        // Byte 1: player1 spectator count (0-2) or 255 if inactive
+        // Byte 2: player2 spectator count (0-2) or 255 if inactive
+        int payloadLen = 3;
+
+        // Header
         Proto.writeHeader(
                 s.out(),
                 MsgType.CLIENT_ACK,
@@ -144,7 +160,10 @@ public class Messenger {
                 payloadLen
         );
 
+        // Payload
         s.out().writeByte(roleByte);
+        s.out().writeByte(player1Active ? player1SpecCount : 255);
+        s.out().writeByte(player2Active ? player2SpecCount : 255);
         s.out().flush();
     }
 

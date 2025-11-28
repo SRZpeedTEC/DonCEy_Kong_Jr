@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "raylib.h"
 
 #include "../clientPlayer/clientPlayer.h"
@@ -10,7 +11,9 @@
 #include "../UtilsC/proto.h"
 #include "../clientPlayer/net.h"
 
-static int check_server_capacity(const char* ip, uint16_t port, uint8_t requestedRole)
+static int check_server_capacity(const char* ip, uint16_t port, uint8_t requestedRole,
+                                 int* outPlayer1SpecCount, int* outPlayer2SpecCount,
+                                 bool* outPlayer1Active, bool* outPlayer2Active)
 {
     if (!net_init()) {
         fprintf(stderr, "net_init failed in check_server_capacity\n");
@@ -24,7 +27,7 @@ static int check_server_capacity(const char* ip, uint16_t port, uint8_t requeste
         return -1;
     }
 
-    // Enviar rol solicitado: 1 = PLAYER, 2 = SPECTATOR
+    // Send requested role: 1 = PLAYER, 2 = SPECTATOR
     if (net_write_n(socketFd, &requestedRole, 1) <= 0) {
         fprintf(stderr, "Failed to send requestedRole\n");
         net_close(socketFd);
@@ -32,18 +35,21 @@ static int check_server_capacity(const char* ip, uint16_t port, uint8_t requeste
         return -1;
     }
 
-    // Leer CLIENT_ACK
+    // Read CLIENT_ACK
     CP_Header header;
     if (!cp_read_header(socketFd, &header) || header.type != CP_TYPE_CLIENT_ACK) {
         fprintf(stderr, "Bad or missing CLIENT_ACK in check_server_capacity\n");
         net_close(socketFd);
         net_cleanup();
-        return 0; // lo tratamos como rechazado
+        return 0;
     }
 
     uint8_t roleByte = 0;
+    uint8_t player1Count = 255;
+    uint8_t player2Count = 255;
 
-    if (header.payloadLen > 0) {
+    if (header.payloadLen >= 3) {
+        // Extended format: [roleByte, player1Count, player2Count]
         uint8_t buf[8];
         if (header.payloadLen > sizeof(buf)) {
             fprintf(stderr, "CLIENT_ACK payload too large\n");
@@ -59,7 +65,19 @@ static int check_server_capacity(const char* ip, uint16_t port, uint8_t requeste
             return -1;
         }
 
-        roleByte = buf[0];   // primer byte = rol
+        roleByte = buf[0];
+        player1Count = buf[1];
+        player2Count = buf[2];
+    } else if (header.payloadLen == 1) {
+        // Legacy format: only role byte
+        uint8_t buf[1];
+        if (net_read_n(socketFd, buf, 1) <= 0) {
+            fprintf(stderr, "Failed to read CLIENT_ACK payload\n");
+            net_close(socketFd);
+            net_cleanup();
+            return -1;
+        }
+        roleByte = buf[0];
     } else {
         fprintf(stderr, "CLIENT_ACK without payload\n");
         net_close(socketFd);
@@ -70,13 +88,17 @@ static int check_server_capacity(const char* ip, uint16_t port, uint8_t requeste
     net_close(socketFd);
     net_cleanup();
 
+    // Return slot info (255 means inactive)
+    if (outPlayer1SpecCount) *outPlayer1SpecCount = (player1Count != 255) ? player1Count : -1;
+    if (outPlayer2SpecCount) *outPlayer2SpecCount = (player2Count != 255) ? player2Count : -1;
+    if (outPlayer1Active) *outPlayer1Active = (player1Count != 255);
+    if (outPlayer2Active) *outPlayer2Active = (player2Count != 255);
+
     if (roleByte == 0) {
-        // server respondiÃ³ "sin rol" => capacidad alcanzada
-        return 0;
+        return 0; // rejected
     }
 
-    // cualquier valor distinto de 0 lo consideramos "hay espacio"
-    return 1;
+    return 1; // accepted
 }
 
 int main(void) {
@@ -88,19 +110,25 @@ int main(void) {
     char ip[32]     = "127.0.0.1";
     char portStr[8] = "9090";
 
-    int selectedRole = 0;   // 0 = none, 1 = player, 2 = spectator 
-    int launcherStep = 0;   // 0 = elegir rol, 1 = elegir slot de spectator
-    int desiredSlot  = 1;   // 1 o 2 (por defecto Player 1)
+    int selectedRole = 0;
+    int launcherStep = 0;
+    int desiredSlot  = 1;
 
     int showErrorMessage = 0;
     char errorText[128] = {0};
     
-    bool shouldLaunchClient = false;  // flag to control when to actually launch
+    bool shouldLaunchClient = false;
+
+    // Slot availability info
+    int player1SpecCount = -1;
+    int player2SpecCount = -1;
+    bool player1Active = false;
+    bool player2Active = false;
 
     Rectangle btnPlayer      = (Rectangle){  80, 150, 180, 50 };
     Rectangle btnSpectator   = (Rectangle){ 340, 150, 190, 50 };
-    Rectangle btnSlot1       = (Rectangle){  80, 150, 180, 50 };
-    Rectangle btnSlot2       = (Rectangle){ 340, 150, 180, 50 };
+    Rectangle btnSlot1       = (Rectangle){  80, 150, 220, 50 };
+    Rectangle btnSlot2       = (Rectangle){ 340, 150, 220, 50 };
 
     SetTargetFPS(60);
 
@@ -108,60 +136,76 @@ int main(void) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 m = GetMousePosition();
             
-            // If error is showing, any click dismisses it
             if (showErrorMessage) {
                 showErrorMessage = 0;
-                continue;  // Skip other button checks this frame
+                continue;
             }
 
             if (launcherStep == 0) {
-                // Pantalla 1: elegir rol
+                // Screen 1: choose role
                 if (CheckCollisionPointRec(m, btnPlayer)) {
                     uint16_t port = (uint16_t)atoi(portStr);
                     
-                    int cap = check_server_capacity(ip, port, 1); // 1 = PLAYER
+                    int cap = check_server_capacity(ip, port, 1, NULL, NULL, NULL, NULL);
                     if (cap == 1) {
-                        // Server accepts - launch client
                         selectedRole = 1;
                         showErrorMessage = 0;
                         shouldLaunchClient = true;
                     } else if (cap == 0) {
-                        // Server rejected - show error
                         showErrorMessage = 1;
-                        strcpy(errorText, "Maximo de jugadores alcanzado.\nNo se puede crear otro PLAYER.");
+                        strcpy(errorText, "Max players reached.\nNo more PLAYER slots available.");
                     } else {
-                        // Connection error
                         showErrorMessage = 1;
-                        strcpy(errorText, "No se pudo conectar al servidor.");
+                        strcpy(errorText, "Could not connect to server.");
                     }
                 }
 
                 if (CheckCollisionPointRec(m, btnSpectator)) {
                     uint16_t port = (uint16_t)atoi(portStr);
                     
-                    int cap = check_server_capacity(ip, port, 2); // 2 = SPECTATOR
+                    // Query slot availability
+                    int cap = check_server_capacity(ip, port, 2, 
+                                                   &player1SpecCount, &player2SpecCount,
+                                                   &player1Active, &player2Active);
                     if (cap == 1) {
-                        // Server accepts - proceed to slot selection
-                        selectedRole = 2;
-                        launcherStep = 1;
-                        showErrorMessage = 0;
+                        // Check if any slots available
+                        bool hasAvailableSlot = false;
+                        if (player1Active && player1SpecCount < 2) hasAvailableSlot = true;
+                        if (player2Active && player2SpecCount < 2) hasAvailableSlot = true;
+                        
+                        if (!hasAvailableSlot && !player1Active && !player2Active) {
+                            // No players online
+                            showErrorMessage = 1;
+                            strcpy(errorText, "No players online.\nWait for a player to connect.");
+                        } else if (!hasAvailableSlot) {
+                            // All slots full
+                            showErrorMessage = 1;
+                            strcpy(errorText, "All spectator slots full.\nTry again later.");
+                        } else {
+                            // At least one slot available - proceed
+                            selectedRole = 2;
+                            launcherStep = 1;
+                            showErrorMessage = 0;
+                        }
                     } else if (cap == 0) {
-                        // Server rejected - show error
                         showErrorMessage = 1;
-                        strcpy(errorText, "Maximo de espectadores alcanzado.\nTodos los espacios estan llenos.");
+                        strcpy(errorText, "Server rejected spectator.\nCapacity reached.");
                     } else {
-                        // Connection error
                         showErrorMessage = 1;
-                        strcpy(errorText, "No se pudo conectar al servidor.");
+                        strcpy(errorText, "Could not connect to server.");
                     }
                 }
             } else if (launcherStep == 1 && selectedRole == 2) {
-                // Pantalla 2: elegir quÃ© player espectear
-                if (CheckCollisionPointRec(m, btnSlot1)) {
+                // Screen 2: choose player slot to spectate
+                
+                // Check if Player 1 slot is available and clicked
+                if (player1Active && player1SpecCount < 2 && CheckCollisionPointRec(m, btnSlot1)) {
                     desiredSlot = 1;
                     shouldLaunchClient = true;
                 }
-                if (CheckCollisionPointRec(m, btnSlot2)) {
+                
+                // Check if Player 2 slot is available and clicked
+                if (player2Active && player2SpecCount < 2 && CheckCollisionPointRec(m, btnSlot2)) {
                     desiredSlot = 2;
                     shouldLaunchClient = true;
                 }
@@ -178,21 +222,59 @@ int main(void) {
         DrawText(portStr,       190, 100, 20, RAYWHITE);
 
         if (launcherStep == 0) {
-            // Pantalla elegir rol
+            // Screen: choose role
             DrawRectangleRec(btnPlayer, DARKGREEN);
             DrawText("Join as PLAYER", btnPlayer.x + 10, btnPlayer.y + 15, 18, RAYWHITE);
 
             DrawRectangleRec(btnSpectator, DARKBLUE);
             DrawText("Join as SPECTATOR", btnSpectator.x + 10, btnSpectator.y + 15, 18, RAYWHITE);
         } else if (launcherStep == 1 && selectedRole == 2) {
-            // Pantalla elegir player a espectear
-            DrawText("Select player to spectate:", 80, 130, 20, RAYWHITE);
+            // Screen: choose player to spectate
+            DrawText("Select player to spectate:", 80, 120, 20, RAYWHITE);
 
-            DrawRectangleRec(btnSlot1, DARKPURPLE);
-            DrawText("Spectate PLAYER 1", btnSlot1.x + 10, btnSlot1.y + 15, 18, RAYWHITE);
+            // Player 1 slot button
+            bool slot1Available = player1Active && player1SpecCount < 2;
+            bool slot1Full = player1Active && player1SpecCount >= 2;
+            
+            Color slot1Color = DARKGRAY;
+            if (slot1Available) slot1Color = DARKPURPLE;
+            else if (slot1Full) slot1Color = (Color){80, 40, 40, 255}; // Dark red
+            
+            DrawRectangleRec(btnSlot1, slot1Color);
+            
+            if (!player1Active) {
+                DrawText("PLAYER 1: OFFLINE", btnSlot1.x + 10, btnSlot1.y + 10, 14, GRAY);
+            } else if (slot1Full) {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "PLAYER 1 (FULL %d/2)", player1SpecCount);
+                DrawText(buf, btnSlot1.x + 10, btnSlot1.y + 15, 14, GRAY);
+            } else {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "Spectate PLAYER 1 (%d/2)", player1SpecCount);
+                DrawText(buf, btnSlot1.x + 10, btnSlot1.y + 15, 14, RAYWHITE);
+            }
 
-            DrawRectangleRec(btnSlot2, DARKPURPLE);
-            DrawText("Spectate PLAYER 2", btnSlot2.x + 10, btnSlot2.y + 15, 18, RAYWHITE);
+            // Player 2 slot button
+            bool slot2Available = player2Active && player2SpecCount < 2;
+            bool slot2Full = player2Active && player2SpecCount >= 2;
+            
+            Color slot2Color = DARKGRAY;
+            if (slot2Available) slot2Color = DARKPURPLE;
+            else if (slot2Full) slot2Color = (Color){80, 40, 40, 255}; // Dark red
+            
+            DrawRectangleRec(btnSlot2, slot2Color);
+            
+            if (!player2Active) {
+                DrawText("PLAYER 2: OFFLINE", btnSlot2.x + 10, btnSlot2.y + 10, 14, GRAY);
+            } else if (slot2Full) {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "PLAYER 2 (FULL %d/2)", player2SpecCount);
+                DrawText(buf, btnSlot2.x + 10, btnSlot2.y + 15, 14, GRAY);
+            } else {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "Spectate PLAYER 2 (%d/2)", player2SpecCount);
+                DrawText(buf, btnSlot2.x + 10, btnSlot2.y + 15, 14, RAYWHITE);
+            }
         }
 
         if (showErrorMessage) {
@@ -204,11 +286,10 @@ int main(void) {
             DrawRectangle(boxX, boxY, boxW, boxH, (Color){80, 0, 0, 255});
             DrawRectangleLines(boxX, boxY, boxW, boxH, RED);
             DrawText(errorText, boxX + 10, boxY + 10, 16, RAYWHITE);
-            DrawText("Intenta creando un nuevo jugador", boxX + 10, boxY + 55, 14, GRAY);
+            DrawText("Click anywhere to dismiss", boxX + 10, boxY + 55, 14, GRAY);
         }
         EndDrawing();
         
-        // Break the loop only when we should actually launch the client
         if (shouldLaunchClient) {
             break;
         }
@@ -216,9 +297,7 @@ int main(void) {
 
     CloseWindow();
 
-    // Only launch client if explicitly flagged to do so
     if (!shouldLaunchClient || selectedRole == 0) {
-        // Usuario cerrÃ³ el launcher sin elegir nada o hubo un error
         return 0;
     }
 
@@ -227,9 +306,6 @@ int main(void) {
     if (selectedRole == 1) {
         return run_player_client(ip, port);
     } else {
-        // spectator: send role (2) + slot (1 or 2) in the initial connection
-        // This requires modifying the protocol to send 2 bytes instead of 1
-        // For now, just launch the spectator client
         return run_spectator_client(ip, port, (uint8_t)desiredSlot);
     }
 }
