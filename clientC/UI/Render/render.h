@@ -1,6 +1,10 @@
 #pragma once
-#include "../game/static_map.h"
+#include "../Game/static_map.h"
 
+#include "Logic/player.h"
+#include "Logic/crocodile.h"
+#include "Logic/fruit.h"
+#include "Logic/constants.h"
 
 
 // Forward declarations to avoid pulling heavy headers
@@ -12,16 +16,7 @@ struct CP_Static;
 // Load and unload sprite textures
 void render_init_assets(void);
 void render_shutdown_assets(void);
-
-// Draw static map + entities (player, crocs, fruits)
-#pragma once
-#include "../game/static_map.h"
-
-
-#include "logic/player.h"
-#include "logic/crocodile.h"
-#include "logic/fruit.h"
-#include "logic/constants.h"   // for MAX_CROCS, MAX_FRUITS
+  
 
 // Load and unload sprite textures
 void render_init_assets(void);

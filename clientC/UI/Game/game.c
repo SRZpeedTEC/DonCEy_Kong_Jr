@@ -4,17 +4,15 @@
 #include <string.h>
 #include <stdio.h>
 
-
-
 #include "../Render/render.h"
-#include "logic/input.h"
-#include "logic/player.h"
-#include "logic/physics.h"
-#include "logic/map.h"
-#include "logic/crocodile.h"
-#include "logic/constants.h"
-#include "logic/fruit.h"
-#include "logic/collision.h"
+#include "Logic/input.h"
+#include "Logic/player.h"
+#include "Logic/physics.h"
+#include "Logic/map.h"
+#include "Logic/crocodile.h"
+#include "Logic/constants.h"
+#include "Logic/fruit.h"
+#include "Logic/collision.h"
 #include "../../UtilsC/entities_tlv.h" 
 
 
@@ -442,7 +440,7 @@ bool game_consume_death_event(void) {
 bool game_consume_win_event(void) {
     if (!gRoundJustWon) return false;
     gRoundJustWon = false;
-    crocodile_increase_speed();
+    //crocodile_increase_speed();
     return true;
 }
 
@@ -504,7 +502,7 @@ void game_respawn_win(void) {
     game_reset_entities();
 
     // increase crocodile speed for next round
-    crocodile_increase_speed();
+    //crocodile_increase_speed();
 
     gRoundWon = false;
     gRoundJustWon = false;

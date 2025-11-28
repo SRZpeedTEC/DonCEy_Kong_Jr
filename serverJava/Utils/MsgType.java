@@ -24,6 +24,7 @@ public final class MsgType {
         public static final byte RESPAWN_VICTORY = 0x72; // server->client (increase enemy speed)
         public static final byte LIVES_UPDATE    = 0x73; // server->client (update lives)
         public static final byte SCORE_UPDATE    = 0x74; // server->client (update score)
+        public static final byte CROC_SPEED_INCREASE = 0x75; // server->client (increase croc speed)
         
         private MsgType(){}
     }

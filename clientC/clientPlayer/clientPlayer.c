@@ -123,6 +123,11 @@ static void on_score_update(const uint8_t* p, uint32_t n){
     }
 }
 
+static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    crocodile_increase_speed();
+}
+
 // ---- envío de propuesta (cliente -> server) ----
 static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
 {
@@ -194,6 +199,8 @@ int run_player_client(const char* ip, uint16_t port)
     disp_register(CP_TYPE_GAME_OVER, on_game_over);
     disp_register(CP_TYPE_LIVES_UPDATE, on_lives_update);
     disp_register(CP_TYPE_SCORE_UPDATE, on_score_update);
+    disp_register(CP_TYPE_CROC_SPEED_INCREASE, on_croc_speed_increase);
+
 
 
 

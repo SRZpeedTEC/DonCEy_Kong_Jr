@@ -195,6 +195,12 @@ public class GameServer {
         fruitStates.clear();
     }
 
+    public synchronized void cleanupOffScreenCrocodiles() {
+        // Remove crocodiles that are below the screen (y > 240)
+        crocodileStates.removeIf(c -> c.y > 240);
+        crocodiles.removeIf(r -> r.y() > 240);
+    }
+
 
     private Integer choosePlayerForSpectator() {
         Integer best = null;
@@ -295,6 +301,10 @@ public class GameServer {
         sendToPlayerGroup(playerId, h -> h.sendScoreUpdate(score));
     }
 
+    public void broadcastCrocSpeedIncreaseToGroup(int playerId) {
+        sendToPlayerGroup(playerId, ClientHandler::sendCrocSpeedIncrease);
+    }
+
 
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);
@@ -309,6 +319,19 @@ public class GameServer {
         javax.swing.SwingUtilities.invokeLater(() -> {
             new ServerGui(this).show();
         });
+
+        Thread cleanupThread = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(1000); // Clean up every second
+                    cleanupOffScreenCrocodiles();
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        }, "cleanup-thread");
+        cleanupThread.setDaemon(true);
+        cleanupThread.start();
 
         while (true) {
             Socket socket = serverSocket.accept();
@@ -405,6 +428,8 @@ public class GameServer {
             handler.start();
             System.out.println("Client connected, id=" + clientId + " from " + socket.getRemoteSocketAddress());
         }
+
+        
 
     }
 

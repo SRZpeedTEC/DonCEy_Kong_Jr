@@ -79,6 +79,14 @@ public class ClientHandler extends Thread {
         }
     }
 
+    public void sendCrocSpeedIncrease() {
+        try {
+            messenger.sendCrocSpeedIncrease(session);
+        } catch (IOException e) {
+            session.log("Error CROC_SPEED_INCREASE: " + e.getMessage());
+        }
+    }
+
     public String getRemote() {
         return socket.getRemoteSocketAddress().toString();
     }

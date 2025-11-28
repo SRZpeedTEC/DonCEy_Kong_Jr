@@ -64,6 +64,11 @@ static void on_remove_fruit(const uint8_t* p, uint32_t n){
     game_remove_fruit_at(x, y);  // << delega al módulo de juego
 }
 
+static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    crocodile_increase_speed();
+}
+
 
 
 typedef void (*FrameHandler)(const uint8_t*, uint32_t);
@@ -177,6 +182,8 @@ int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
     disp_register(CP_TYPE_GAME_OVER,              on_game_over);
     disp_register(CP_TYPE_LIVES_UPDATE,           on_lives_update);
     disp_register(CP_TYPE_SCORE_UPDATE,           on_score_update);
+    disp_register(CP_TYPE_CROC_SPEED_INCREASE, on_croc_speed_increase);
+
 
 
     CP_Header header;

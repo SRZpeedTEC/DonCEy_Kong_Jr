@@ -6,6 +6,78 @@
 
 #include "../clientPlayer/clientPlayer.h"
 #include "../clientSpectator/clientSpectator.h"
+#include "../UtilsC/msg_types.h"
+#include "../UtilsC/proto.h"
+#include "../clientPlayer/net.h"
+
+static int check_server_capacity(const char* ip, uint16_t port, uint8_t requestedRole)
+{
+    if (!net_init()) {
+        fprintf(stderr, "net_init failed in check_server_capacity\n");
+        return -1;
+    }
+
+    int socketFd = net_connect(ip, port);
+    if (socketFd < 0) {
+        fprintf(stderr, "net_connect failed in check_server_capacity\n");
+        net_cleanup();
+        return -1;
+    }
+
+    // Enviar rol solicitado: 1 = PLAYER, 2 = SPECTATOR
+    if (net_write_n(socketFd, &requestedRole, 1) <= 0) {
+        fprintf(stderr, "Failed to send requestedRole\n");
+        net_close(socketFd);
+        net_cleanup();
+        return -1;
+    }
+
+    // Leer CLIENT_ACK
+    CP_Header header;
+    if (!cp_read_header(socketFd, &header) || header.type != CP_TYPE_CLIENT_ACK) {
+        fprintf(stderr, "Bad or missing CLIENT_ACK in check_server_capacity\n");
+        net_close(socketFd);
+        net_cleanup();
+        return 0; // lo tratamos como rechazado
+    }
+
+    uint8_t roleByte = 0;
+
+    if (header.payloadLen > 0) {
+        uint8_t buf[8];
+        if (header.payloadLen > sizeof(buf)) {
+            fprintf(stderr, "CLIENT_ACK payload too large\n");
+            net_close(socketFd);
+            net_cleanup();
+            return -1;
+        }
+
+        if (net_read_n(socketFd, buf, header.payloadLen) <= 0) {
+            fprintf(stderr, "Failed to read CLIENT_ACK payload\n");
+            net_close(socketFd);
+            net_cleanup();
+            return -1;
+        }
+
+        roleByte = buf[0];   // primer byte = rol
+    } else {
+        fprintf(stderr, "CLIENT_ACK without payload\n");
+        net_close(socketFd);
+        net_cleanup();
+        return 0;
+    }
+
+    net_close(socketFd);
+    net_cleanup();
+
+    if (roleByte == 0) {
+        // server respondió "sin rol" => capacidad alcanzada
+        return 0;
+    }
+
+    // cualquier valor distinto de 0 lo consideramos "hay espacio"
+    return 1;
+}
 
 int main(void) {
     const int screenWidth  = 600;
@@ -19,6 +91,9 @@ int main(void) {
     int selectedRole = 0;   // 0 = none, 1 = player, 2 = spectator
     int launcherStep = 0;   // 0 = elegir rol, 1 = elegir slot de spectator
     int desiredSlot  = 1;   // 1 o 2 (por defecto Player 1)
+
+    int showErrorMessage = 0;
+    char errorText[128] = {0};
 
     Rectangle btnPlayer      = (Rectangle){  80, 150, 180, 50 };
     Rectangle btnSpectator   = (Rectangle){ 340, 150, 180, 50 };
@@ -34,12 +109,41 @@ int main(void) {
             if (launcherStep == 0) {
                 // Pantalla 1: elegir rol
                 if (CheckCollisionPointRec(m, btnPlayer)) {
-                    selectedRole = 1;
-                    break; // cerrar launcher y lanzar cliente player
+                    uint16_t port = (uint16_t)atoi(portStr);
+
+                    int cap = check_server_capacity(ip, port, 1); // 1 = PLAYER
+                    if (cap == 1) {
+                        // Hay espacio para PLAYER -> cerramos launcher y lanzamos cliente
+                        selectedRole = 1;
+                        showErrorMessage = 0;
+                        break;
+                    } else if (cap == 0) {
+                        // Capacidad de jugadores alcanzada
+                        showErrorMessage = 1;
+                        strcpy(errorText, "Maximo de jugadores alcanzado.\nNo se puede crear otro PLAYER.");
+                    } else {
+                        showErrorMessage = 1;
+                        strcpy(errorText, "No se pudo conectar al servidor.");
+                    }
                 }
+
                 if (CheckCollisionPointRec(m, btnSpectator)) {
-                    selectedRole = 2;
-                    launcherStep = 1; // pasar a elegir qué player ver
+                    uint16_t port = (uint16_t)atoi(portStr);
+
+                    int cap = check_server_capacity(ip, port, 2); // 2 = SPECTATOR
+                    if (cap == 1) {
+                        // Hay espacio para SPECTATOR en general
+                        selectedRole = 2;
+                        launcherStep = 1; // pasar a elegir qué player espectear
+                        showErrorMessage = 0;
+                    } else if (cap == 0) {
+                        // Capacidad de espectadores alcanzada
+                        showErrorMessage = 1;
+                        strcpy(errorText, "Maximo de espectadores alcanzado.\nNo se puede crear otro SPECTATOR.");
+                    } else {
+                        showErrorMessage = 1;
+                        strcpy(errorText, "No se pudo conectar al servidor.");
+                    }
                 }
             } else if (launcherStep == 1 && selectedRole == 2) {
                 // Pantalla 2: elegir qué player espectear
@@ -81,6 +185,16 @@ int main(void) {
             DrawText("Spectate PLAYER 2", btnSlot2.x + 10, btnSlot2.y + 15, 18, RAYWHITE);
         }
 
+        if (showErrorMessage) {
+            int boxW = 560;
+            int boxH = 60;
+            int boxX = (screenWidth  - boxW) / 2;
+            int boxY = screenHeight - boxH - 10;
+
+            DrawRectangle(boxX, boxY, boxW, boxH, (Color){80, 0, 0, 255});
+            DrawRectangleLines(boxX, boxY, boxW, boxH, RED);
+            DrawText(errorText, boxX + 10, boxY + 10, 18, RAYWHITE);
+        }
         EndDrawing();
     }
 

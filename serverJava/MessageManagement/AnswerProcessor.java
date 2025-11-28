@@ -145,6 +145,7 @@ public class AnswerProcessor {
 
             // HUD and respawn for everyone in the group
             server.broadcastLivesUpdateToGroup(sess.clientId(), lives);
+            server.broadcastCrocSpeedIncreaseToGroup(sess.clientId());
             server.broadcastRespawnWinToGroup(sess.clientId());
             return;
         }
