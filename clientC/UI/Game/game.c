@@ -199,7 +199,34 @@ void game_draw_static(const CP_Static* staticMap) {
             const char* txt = "GAME OVER";
             int fs = 24;
             int tw = MeasureText(txt, fs);
-            DrawText(txt, (VW*SCALE - tw)/2, (VH*SCALE)/3, fs, RED);
+            int screenWidth = VW * SCALE;
+            int screenHeight = VH * SCALE;
+            DrawText(txt, (screenWidth - tw)/2, screenHeight/3, fs, RED);
+            
+            // Draw restart button
+            const char* btnText = "RESTART";
+            int btnFontSize = 20;
+            int btnWidth = 120;
+            int btnHeight = 40;
+            int btnX = (screenWidth - btnWidth) / 2;
+            int btnY = screenHeight/2;
+            
+            Rectangle restartBtn = (Rectangle){btnX, btnY, btnWidth, btnHeight};
+            
+            // Check if mouse is over button
+            Vector2 mousePos = GetMousePosition();
+            bool isHover = CheckCollisionPointRec(mousePos, restartBtn);
+            
+            // Draw button
+            Color btnColor = isHover ? (Color){100, 180, 100, 255} : (Color){80, 140, 80, 255};
+            DrawRectangleRec(restartBtn, btnColor);
+            DrawRectangleLinesEx(restartBtn, 2, WHITE);
+            
+            // Center text in button
+            int btnTextWidth = MeasureText(btnText, btnFontSize);
+            int textX = btnX + (btnWidth - btnTextWidth) / 2;
+            int textY = btnY + (btnHeight - btnFontSize) / 2;
+            DrawText(btnText, textX, textY, btnFontSize, WHITE);
         }
 
         // fruits picked debug
@@ -511,6 +538,42 @@ void game_respawn_win(void) {
     player_init(&gPlayer, 16, 192, 16, 16);
 }
 
+// full game restart: reset everything to initial state (3 lives, score 0, default croc speed)
+void game_restart(void) {
+    game_reset_entities();
 
+    // Reset crocodile speed to default
+    crocodile_reset_speed();
 
+    // Reset game state flags
+    gRoundWon = false;
+    gRoundJustWon = false;
+    gGameOver = false;
+    gFruitsPickedCount = 0;
 
+    // Reset UI (will be updated by server messages)
+    gUiLives = 3;
+    gUiScore = 0;
+
+    // Reset player state and position
+    player_init(&gPlayer, 16, 192, 16, 16);
+}
+
+// check if restart button was clicked (only valid when game over)
+bool game_check_restart_clicked(void) {
+    if (!gGameOver) return false;
+    
+    if (!IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) return false;
+    
+    int screenWidth = VW * SCALE;
+    int screenHeight = VH * SCALE;
+    int btnWidth = 120;
+    int btnHeight = 40;
+    int btnX = (screenWidth - btnWidth) / 2;
+    int btnY = screenHeight / 2;
+    
+    Rectangle restartBtn = (Rectangle){btnX, btnY, btnWidth, btnHeight};
+    Vector2 mousePos = GetMousePosition();
+    
+    return CheckCollisionPointRec(mousePos, restartBtn);
+}

@@ -33,3 +33,4 @@ void crocodile_spawn(Crocodile* croc, uint8_t variant, int16_t x, int16_t y);
 void crocodile_update(Crocodile* croc, const MapView* map);
 
 bool crocodile_player_overlap(const Player* player, const Crocodile* crocs, int count);
+void crocodile_reset_speed(void);

@@ -128,6 +128,11 @@ static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
     crocodile_increase_speed();
 }
 
+static void on_game_restart(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    game_restart();
+}
+
 // ---- envío de propuesta (cliente -> server) ----
 static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
 {
@@ -158,6 +163,11 @@ static int send_notify_fruit_pick(int socketFd, uint32_t clientId, int16_t fruit
     buf[2] = fruitY >> 8;
     buf[3] = fruitY & 0xFF;
     return cp_send_frame(socketFd, CP_TYPE_NOTIFY_FRUIT_PICK, clientId, 0, buf, sizeof(buf)) ? 1 : 0;
+}
+
+static int send_request_restart(int socketFd, uint32_t clientId)
+{
+    return cp_send_frame(socketFd, CP_TYPE_REQUEST_RESTART, clientId, 0, NULL, 0) ? 1 : 0;
 }
 
 
@@ -200,6 +210,7 @@ int run_player_client(const char* ip, uint16_t port)
     disp_register(CP_TYPE_LIVES_UPDATE, on_lives_update);
     disp_register(CP_TYPE_SCORE_UPDATE, on_score_update);
     disp_register(CP_TYPE_CROC_SPEED_INCREASE, on_croc_speed_increase);
+    disp_register(CP_TYPE_GAME_RESTART, on_game_restart);
 
 
 
@@ -295,6 +306,11 @@ int run_player_client(const char* ip, uint16_t port)
         int16_t fruitX, fruitY;
         if (game_consume_fruit_event(&fruitX, &fruitY)) {
             send_notify_fruit_pick(socketFd, clientId, fruitX, fruitY);
+        }
+
+        // Check if restart button was clicked (only works when game over)
+        if (game_check_restart_clicked()) {
+            send_request_restart(socketFd, clientId);
         }
 
         send_player_proposed(socketFd, clientId, tick++, proposedState.x, proposedState.y, proposedState.vx, proposedState.vy, proposedState.flags);

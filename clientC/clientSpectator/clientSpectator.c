@@ -106,6 +106,11 @@ static void on_game_over(const uint8_t* p, uint32_t n){
         game_over_event();
     }
 
+static void on_game_restart(const uint8_t* p, uint32_t n){
+        (void)p; (void)n;
+        game_restart();
+    }
+
 // ---- handlers ----
 static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
     if (!cp_recv_init_static_payload(payloadPtr,payloadLen)) fprintf(stderr,"[INIT_STATIC] payload invalido\n");
@@ -183,6 +188,7 @@ int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
     disp_register(CP_TYPE_LIVES_UPDATE,           on_lives_update);
     disp_register(CP_TYPE_SCORE_UPDATE,           on_score_update);
     disp_register(CP_TYPE_CROC_SPEED_INCREASE, on_croc_speed_increase);
+    disp_register(CP_TYPE_GAME_RESTART, on_game_restart);
 
 
 
@@ -286,4 +292,3 @@ done:
     net_cleanup();
     return 0;
 }
-

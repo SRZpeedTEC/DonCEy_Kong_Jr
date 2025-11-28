@@ -32,6 +32,11 @@ void crocodile_increase_speed(void) {
     g_crocBaseSpeed++;
 }
 
+// external hook to reset crocodile speed to default (game restart)
+void crocodile_reset_speed(void) {
+    g_crocBaseSpeed = (CROC_BASE_SPEED > 0) ? CROC_BASE_SPEED : 1;
+}
+
 // simple aabb helper
 static bool rects_overlap_int(int ax, int ay, int aw, int ah,
                               int bx, int by, int bw, int bh)

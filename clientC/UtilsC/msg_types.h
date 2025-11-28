@@ -28,7 +28,9 @@ enum {
   CP_TYPE_RESPAWN_WIN       = 0x72,  // c -> s (request respawn after victory)
   CP_TYPE_LIVES_UPDATE            = 0x73,  // s -> c  
   CP_TYPE_SCORE_UPDATE            = 0x74,  // s -> c  
-  CP_TYPE_CROC_SPEED_INCREASE = 0x75  // s -> c (increase croc speed)
+  CP_TYPE_CROC_SPEED_INCREASE = 0x75,  // s -> c (increase croc speed)
+  CP_TYPE_REQUEST_RESTART = 0x76,  // c -> s (player requests full game restart)
+  CP_TYPE_GAME_RESTART = 0x77  // s -> c (broadcast game restart to player + spectators)
 };
 
 // TLVs (dentro de STATE_BUNDLE)

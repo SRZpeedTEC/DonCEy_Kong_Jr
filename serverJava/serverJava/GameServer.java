@@ -312,6 +312,17 @@ public class GameServer {
         sendToPlayerGroup(playerId, ClientHandler::sendCrocSpeedIncrease);
     }
 
+    public void broadcastGameRestartToGroup(int playerId) {
+        sendToPlayerGroup(playerId, ClientHandler::sendGameRestart);
+    }
+
+    public void resetCrocodileSpeed() {
+        // This resets the server-side crocodile speed tracking
+        // The actual speed is managed client-side, so we just need to ensure
+        // the server state is consistent
+        System.out.println("Crocodile speed reset to default");
+    }
+
 
     public void start() throws IOException {
         serverSocket = new ServerSocket(port);

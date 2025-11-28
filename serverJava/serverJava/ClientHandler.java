@@ -149,6 +149,14 @@ public class ClientHandler extends Thread {
         }
     }
 
+    public void sendGameRestart() {
+        try {
+            messenger.sendGameRestart(session);
+        } catch (IOException e) {
+            session.log("Error GAME_RESTART: " + e.getMessage());
+        }
+    }
+
 
     @Override
     public void run() {

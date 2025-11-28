@@ -160,6 +160,33 @@ public class AnswerProcessor {
             return;
         }
 
+        // --- REQUEST_RESTART (player requests full game restart) ---
+        if (type == MsgType.REQUEST_RESTART) {
+            player p = server.getPlayerFromServer(sess.clientId());
+            if (p == null) return;
+
+            System.out.println("Player " + sess.clientId() + " requested game restart");
+
+            // Reset player state
+            p.setLives(3);
+            p.setScore(0);
+
+            // Clear all entities
+            server.clearEntitiesForNewRound();
+
+            // Reset crocodile speed on server (will be handled by clients via GAME_RESTART message)
+            server.resetCrocodileSpeed();
+
+            // Broadcast restart to player + spectators
+            server.broadcastGameRestartToGroup(sess.clientId());
+
+            // Send updated HUD
+            server.broadcastLivesUpdateToGroup(sess.clientId(), (byte) 3);
+            server.broadcastScoreUpdateToGroup(sess.clientId(), 0);
+
+            return;
+        }
+
         // 2) Otros tipos: de momento saltamos el payload
         if (len > 0) in.skipNBytes(len);
     }

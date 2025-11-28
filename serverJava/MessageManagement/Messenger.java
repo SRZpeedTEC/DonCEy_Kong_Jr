@@ -153,4 +153,9 @@ public class Messenger {
         session.out().flush();
     }
 
+    public void sendGameRestart(Session session) throws IOException {
+        Proto.writeHeader(session.out(), MsgType.GAME_RESTART, session.clientId(), 0, 0);
+        session.out().flush();
+    }
+
 }
