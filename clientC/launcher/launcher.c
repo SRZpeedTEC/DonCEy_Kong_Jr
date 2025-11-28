@@ -94,6 +94,8 @@ int main(void) {
 
     int showErrorMessage = 0;
     char errorText[128] = {0};
+    
+    bool shouldLaunchClient = false;  // flag to control when to actually launch
 
     Rectangle btnPlayer      = (Rectangle){  80, 150, 180, 50 };
     Rectangle btnSpectator   = (Rectangle){ 340, 150, 180, 50 };
@@ -109,51 +111,27 @@ int main(void) {
             if (launcherStep == 0) {
                 // Pantalla 1: elegir rol
                 if (CheckCollisionPointRec(m, btnPlayer)) {
-                    uint16_t port = (uint16_t)atoi(portStr);
-
-                    int cap = check_server_capacity(ip, port, 1); // 1 = PLAYER
-                    if (cap == 1) {
-                        // Hay espacio para PLAYER -> cerramos launcher y lanzamos cliente
-                        selectedRole = 1;
-                        showErrorMessage = 0;
-                        break;
-                    } else if (cap == 0) {
-                        // Capacidad de jugadores alcanzada
-                        showErrorMessage = 1;
-                        strcpy(errorText, "Maximo de jugadores alcanzado.\nNo se puede crear otro PLAYER.");
-                    } else {
-                        showErrorMessage = 1;
-                        strcpy(errorText, "No se pudo conectar al servidor.");
-                    }
+                    // Just launch - server will reject if full
+                    selectedRole = 1;
+                    showErrorMessage = 0;
+                    shouldLaunchClient = true;
                 }
 
                 if (CheckCollisionPointRec(m, btnSpectator)) {
-                    uint16_t port = (uint16_t)atoi(portStr);
-
-                    int cap = check_server_capacity(ip, port, 2); // 2 = SPECTATOR
-                    if (cap == 1) {
-                        // Hay espacio para SPECTATOR en general
-                        selectedRole = 2;
-                        launcherStep = 1; // pasar a elegir qué player espectear
-                        showErrorMessage = 0;
-                    } else if (cap == 0) {
-                        // Capacidad de espectadores alcanzada
-                        showErrorMessage = 1;
-                        strcpy(errorText, "Maximo de espectadores alcanzado.\nNo se puede crear otro SPECTATOR.");
-                    } else {
-                        showErrorMessage = 1;
-                        strcpy(errorText, "No se pudo conectar al servidor.");
-                    }
+                    // Just proceed to slot selection - server will reject if full
+                    selectedRole = 2;
+                    launcherStep = 1;
+                    showErrorMessage = 0;
                 }
             } else if (launcherStep == 1 && selectedRole == 2) {
                 // Pantalla 2: elegir qué player espectear
                 if (CheckCollisionPointRec(m, btnSlot1)) {
                     desiredSlot = 1;
-                    break;
+                    shouldLaunchClient = true;
                 }
                 if (CheckCollisionPointRec(m, btnSlot2)) {
                     desiredSlot = 2;
-                    break;
+                    shouldLaunchClient = true;
                 }
             }
         }
@@ -196,12 +174,18 @@ int main(void) {
             DrawText(errorText, boxX + 10, boxY + 10, 18, RAYWHITE);
         }
         EndDrawing();
+        
+        // Break the loop only when we should actually launch the client
+        if (shouldLaunchClient) {
+            break;
+        }
     }
 
     CloseWindow();
 
-    if (selectedRole == 0) {
-        // Usuario cerró el launcher sin elegir nada
+    // Only launch client if explicitly flagged to do so
+    if (!shouldLaunchClient || selectedRole == 0) {
+        // Usuario cerró el launcher sin elegir nada o hubo un error
         return 0;
     }
 
@@ -210,8 +194,9 @@ int main(void) {
     if (selectedRole == 1) {
         return run_player_client(ip, port);
     } else {
-        // spectator + slot elegido (1 o 2)
+        // spectator: send role (2) + slot (1 or 2) in the initial connection
+        // This requires modifying the protocol to send 2 bytes instead of 1
+        // For now, just launch the spectator client
         return run_spectator_client(ip, port, (uint8_t)desiredSlot);
     }
 }
-

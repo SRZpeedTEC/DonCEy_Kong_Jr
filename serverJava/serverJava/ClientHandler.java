@@ -41,8 +41,8 @@ public class ClientHandler extends Thread {
         this.answerProcessor = new AnswerProcessor(server);
         this.messenger       = new Messenger(server);
 
-        // --- ACK al conectar ---
-        messenger.sendClientAck(session, role);
+        // --- CLIENT_ACK is now sent by GameServer before creating ClientHandler ---
+        // So we don't send it here anymore
 
         // --- Mapa estático inicial ---
         messenger.sendInitStaticLegacy(clientId, out);
