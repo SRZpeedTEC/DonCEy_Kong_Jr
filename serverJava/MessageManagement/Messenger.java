@@ -102,18 +102,23 @@ public class Messenger {
         session.out().flush();
     }
 
-    public void sendSpectatorState(Session s, short x, short y, short vx, short vy, byte flags) throws IOException 
+    public void sendSpectatorState(Session s, short x, short y, short vx, short vy, byte flags, byte[] entitiesTlv) throws IOException 
     {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
 
-        // Payload layout: x, y, vx, vy as int16, flags as byte => 9 bytes
+        // Player state (9 bytes)
         out.writeShort(x);
         out.writeShort(y);
         out.writeShort(vx);
         out.writeShort(vy);
         out.writeByte(flags);
+
+        // Entities TLV (variable length)
+        if (entitiesTlv != null && entitiesTlv.length > 0) {
+            out.write(entitiesTlv);
+        }
 
         byte[] payload = baos.toByteArray();
 

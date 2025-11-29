@@ -51,7 +51,6 @@ public class GameServer {
     public final List<EntityState> crocodileStates = new ArrayList<>();
     public final List<EntityState> fruitStates     = new ArrayList<>();
 
-    public int crocodileSpeedLevel = 0;
 
     static final int CROC_W  = 8;
     static final int FRUIT_W = 8;
@@ -268,12 +267,8 @@ public class GameServer {
         specs.add(spectator);
         spectator.setObservedPlayerId(targetPlayerId);
        
-        for (EntityState c : crocodileStates) {
-            spectator.sendSpawnCroc(c.variant, c.x, c.y);
-        }
-        for (EntityState f : fruitStates) {
-            spectator.sendSpawnFruit(f.variant, f.x, f.y);
-        }
+        // NOTE: Spectator will receive entities via TLV in SPECTATOR_STATE messages
+        // No need to send initial spawn messages - they get full snapshot each frame
 
         player pState = getPlayerFromServer(targetPlayerId); 
         byte lives = (byte) pState.getLives();
@@ -315,15 +310,10 @@ public class GameServer {
         sendToPlayerGroup(playerId, ClientHandler::sendGameRestart);
     }
 
-    public int getCrocodileSpeedLevel() {
-        return crocodileSpeedLevel;
-    }
-
     public void resetCrocodileSpeed() {
         // This resets the server-side crocodile speed tracking
         // The actual speed is managed client-side, so we just need to ensure
         // the server state is consistent
-        crocodileSpeedLevel = 0;
         System.out.println("Crocodile speed reset to default");
     }
 
@@ -633,12 +623,12 @@ public class GameServer {
     // Broadcast player state to all spectators observing this player
     //param playerClientId The client ID of the player whose state is being broadcasted
     //returns void
-    public void broadcastPlayerStateToSpectators(int playerClientId, short x, short y, short vx, short vy, byte flags) {
+    public void broadcastPlayerStateToSpectators(int playerClientId, short x, short y, short vx, short vy, byte flags, byte[] entitiesTlv) {
         List<ClientHandler> specs = spectatorsByPlayer.get(playerClientId);
         if (specs == null || specs.isEmpty()) return;
 
         for (ClientHandler spectator : specs) {
-            spectator.sendSpectatorState(x, y, vx, vy, flags);
+            spectator.sendSpectatorState(x, y, vx, vy, flags, entitiesTlv);
         }
     }
 

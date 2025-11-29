@@ -385,6 +385,20 @@ void game_update_spectator(const CP_Static* staticMap) {
     gPlayer.onVine = player_touching_vine(&gPlayer, &mv);
 }
 
+void game_clear_all_entities(void) {
+    // Clear all crocodiles
+    for (int i = 0; i < MAX_CROCS; ++i) {
+        gCrocs[i].active = false;
+        gCrocs[i].vx = 0;
+        gCrocs[i].vy = 0;
+    }
+    
+    // Clear all fruits
+    for (int i = 0; i < MAX_FRUITS; ++i) {
+        gFruits[i].active = false;
+    }
+}
+
 void game_spawn_croc(uint8_t variant, int16_t x, int16_t y) {
     // search for an inactive crocodile to spawn
     for (int i = 0; i < MAX_CROCS; ++i) {

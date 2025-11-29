@@ -56,6 +56,13 @@ public class AnswerProcessor {
             short vy    = in.readShort();
             byte  flags = in.readByte();
 
+            // Read remaining bytes as entities TLV
+            int entitiesLen = len - 13;
+            byte[] entitiesTlv = null;
+            if (entitiesLen > 0) {
+                entitiesTlv = in.readNBytes(entitiesLen);
+            }
+
             player p1 = server.getPlayerFromServer(sess.clientId());
             if (p1 != null) {
                 p1.x  = x;
@@ -64,7 +71,8 @@ public class AnswerProcessor {
                 p1.vy = vy;
             }
 
-            server.broadcastPlayerStateToSpectators(sess.clientId(), x, y, vx, vy, flags);
+            // Broadcast to spectators WITH entities TLV
+            server.broadcastPlayerStateToSpectators(sess.clientId(), x, y, vx, vy, flags, entitiesTlv);
             return;
         }
 
@@ -141,7 +149,6 @@ public class AnswerProcessor {
             p.increaseLives();
             System.out.println("Player " + sess.clientId() + " won! Lives now: " + p.getLives());
             server.clearEntitiesForNewRound();
-            server.crocodileSpeedLevel++;
 
             byte lives = (byte) p.getLives();
 
