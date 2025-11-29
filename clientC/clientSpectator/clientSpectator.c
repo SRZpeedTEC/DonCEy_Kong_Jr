@@ -74,17 +74,28 @@ static void on_spectator_state(const uint8_t* payloadPtr, uint32_t payloadLen)
 
             // Spawn crocodile (kind 1)
             if (kind == 1) {
-                uint8_t variant = 0;
-                if (spriteId == 1) variant = 0;  // CROC_VARIANT_BLUE
-                else if (spriteId == 2) variant = 1;  // CROC_VARIANT_RED
+                // Crocodile mapping (based on crocodile.h):
+                // CROC_VARIANT_RED=1, CROC_VARIANT_BLUE=2
+                // Player: variant=2 (BLUE) → spriteId=1
+                //         variant=1 (RED)  → spriteId=2
+                // So: spriteId=1 → variant=2 (BLUE)
+                //     spriteId=2 → variant=1 (RED)
+                uint8_t variant = (spriteId == 1) ? 2 : 1;
                 game_spawn_croc(variant, ex, ey);
             }
             // Spawn fruit (kind 2)
             else if (kind == 2) {
-                uint8_t variant = 0;
-                if (spriteId == 1) variant = 0;  // FRUIT_VARIANT_APPLE
-                else if (spriteId == 2) variant = 1;  // FRUIT_VARIANT_ORANGE
-                else if (spriteId == 3) variant = 2;  // FRUIT_VARIANT_BANANA
+                // Fruit mapping (based on game.c TLV building):
+                // Player: variant=2 (APPLE)  → spriteId=1
+                //         variant=3 (ORANGE) → spriteId=2
+                //         variant=1 (BANANA) → spriteId=3
+                // So: spriteId=1 → variant=2 (APPLE)
+                //     spriteId=2 → variant=3 (ORANGE)
+                //     spriteId=3 → variant=1 (BANANA)
+                uint8_t variant;
+                if (spriteId == 1) variant = 2;      // APPLE
+                else if (spriteId == 2) variant = 3; // ORANGE
+                else variant = 1;                     // BANANA (spriteId==3 or default)
                 game_spawn_fruit(variant, ex, ey);
             }
         }
