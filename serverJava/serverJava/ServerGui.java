@@ -7,28 +7,45 @@ import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.util.List;
 
+/**
+ * Swing-based admin GUI for the server. Allows selecting a target player slot,
+ * choosing an entity type (crocodile/fruit) and variant, picking a discrete
+ * position (1..5), and spawning/removing entities on a selected vine/platform.
+ */
 public class ServerGui {
 
+    /** Backing game server providing level data and spawn/remove actions. */
     private final GameServer server;
+    /** Main window frame. */
     private final JFrame frame;
+    /** Player slot selector (1 or 2) for the target player. */
     private final JComboBox<Integer> clientCombo;
 
+    /** Entity type toggle: crocodile. */
     private final JRadioButton crocRadio;
+    /** Entity type toggle: fruit. */
     private final JRadioButton fruitRadio;
+    /** Variant selector for the chosen entity type. */
     private final JComboBox<String> variantCombo;
 
-    // Position único (1..5)
+    /** Discrete position (1..5) along a container (vine/platform). */
     private final JComboBox<Integer> posCombo;
 
-    //container selection
+    /** Container the admin is targeting. */
     private enum Target { NONE, VINE, PLATFORM }
     private Target selectedTarget = Target.NONE;
+    /** Index of selected container in its list. */
     private int selectedIndex = -1;
 
-    //actions
+    /** Action button to send a spawn request. */
     private final JButton sendBtn;
+    /** Action button to remove a fruit at the selected container/position. */
     private final JButton deleteFruitBtn;
 
+    /**
+     * Constructs the admin GUI and wires UI actions.
+     * @param server bound {@link GameServer} instance
+     */
     public ServerGui(GameServer server) {
         this.server = server;
 
@@ -83,7 +100,7 @@ public class ServerGui {
 
         frame.add(top, BorderLayout.NORTH);
 
-        //list of vines and platforms
+        // ---------- CENTER ----------
         JPanel center = new JPanel(new GridLayout(2, 1));
 
         // Vines
@@ -117,6 +134,11 @@ public class ServerGui {
         refreshClients();
     }
 
+    /**
+     * Stores the selected container and notifies the user.
+     * @param t   target container type
+     * @param idx index within the corresponding list
+     */
     private void selectContainer(Target t, int idx){
         this.selectedTarget = t;
         this.selectedIndex  = idx;
@@ -124,6 +146,10 @@ public class ServerGui {
         JOptionPane.showMessageDialog(frame, "Selected: " + name);
     }
 
+    /**
+     * Sends a spawn command (croc/fruit) to the server for the chosen
+     * player slot, container, variant, and discrete position.
+     */
     private void doSend(){
         Integer slotIndex = (Integer) clientCombo.getSelectedItem();
         if (slotIndex == null) {
@@ -135,15 +161,14 @@ public class ServerGui {
             return;
         }
 
-      
         Integer playerClientId = server.getPlayerClientIdForSlot(slotIndex);
         if (playerClientId == null) {
             msg("No player connected in slot " + slotIndex);
             return;
         }
 
-        byte variant = resolveVariantCode();          
-        int pos = (Integer) posCombo.getSelectedItem(); 
+        byte variant = resolveVariantCode();
+        int pos = (Integer) posCombo.getSelectedItem();
 
         switch (selectedTarget){
             case VINE -> {
@@ -162,7 +187,10 @@ public class ServerGui {
         }
     }
 
-
+    /**
+     * Issues a fruit removal at the selected container and position for
+     * the chosen player slot.
+     */
     private void doDeleteFruit(){
         Integer slotIndex = (Integer) clientCombo.getSelectedItem();
         if (slotIndex == null) {
@@ -180,7 +208,7 @@ public class ServerGui {
             return;
         }
 
-        int pos = (Integer) posCombo.getSelectedItem(); 
+        int pos = (Integer) posCombo.getSelectedItem();
 
         switch (selectedTarget){
             case VINE     -> server.removeFruitOnVineForClient(playerClientId, selectedIndex, pos);
@@ -189,13 +217,15 @@ public class ServerGui {
         }
     }
 
-    
+    /** Loads crocodile variants into the variant combo box. */
     private void loadVariantsForCroc(){
         variantCombo.removeAllItems();
         variantCombo.addItem("RED");
         variantCombo.addItem("BLUE");
         variantCombo.setSelectedIndex(0);
     }
+
+    /** Loads fruit variants into the variant combo box. */
     private void loadVariantsForFruit(){
         variantCombo.removeAllItems();
         variantCombo.addItem("BANANA");
@@ -203,6 +233,11 @@ public class ServerGui {
         variantCombo.addItem("ORANGE");
         variantCombo.setSelectedIndex(0);
     }
+
+    /**
+     * Resolves the selected variant name to its protocol code using Utils enums.
+     * @return variant byte code
+     */
     private byte resolveVariantCode(){
         String v = (String) variantCombo.getSelectedItem();
         if (crocRadio.isSelected()){
@@ -217,27 +252,24 @@ public class ServerGui {
         }
     }
 
-
-   
-    // Refresh the list of connected clients in the combo box
-    // This method clears the existing items and repopulates the combo box
-    // with the client IDs of currently connected players.
-
+    /**
+     * Refreshes the player-slot combo based on current server state.
+     * Adds slot numbers (1/2) that currently have an active player.
+     */
     private void refreshClients(){
         clientCombo.removeAllItems();
 
-        
         if (server.getPlayerClientIdForSlot(1) != null) {
-            clientCombo.addItem(1);   
+            clientCombo.addItem(1);
         }
-
-        
         if (server.getPlayerClientIdForSlot(2) != null) {
-            clientCombo.addItem(2);   
+            clientCombo.addItem(2);
         }
     }
 
+    /** Shows a modal message dialog. */
     private void msg(String m){ JOptionPane.showMessageDialog(frame, m); }
 
+    /** Displays the admin window. */
     public void show(){ frame.setVisible(true); }
 }

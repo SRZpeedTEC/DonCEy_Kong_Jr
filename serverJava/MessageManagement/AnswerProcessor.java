@@ -5,27 +5,54 @@ import serverJava.GameServer;
 import Utils.MsgType;
 import Classes.Player.player;
 
+/**
+ * Parses and processes inbound frames from a client and triggers the
+ * corresponding server-side actions and broadcasts. This class acts as the
+ * entry point for handling player proposals, collisions, fruit events,
+ * victory, spectating, and restart requests.
+ */
 public class AnswerProcessor {
 
+    /**
+     * Functional interface for handlers that operate on a raw payload.
+     */
     public interface Handler {
+        /**
+         * Handles a message payload for a given session.
+         * @param payload Raw payload bytes (may be empty).
+         * @param sess    Source session.
+         * @throws IOException If an I/O error occurs during handling.
+         */
         void handle(byte[] payload, Session sess) throws IOException;
     }
 
     private final GameServer server;
     private final Messenger messenger;
 
+    /**
+     * Creates a new processor bound to a server instance.
+     * @param server Authoritative server instance (non-null).
+     */
     public AnswerProcessor(GameServer server){
         this.server = server;
         this.messenger = new Messenger(server);
     }
 
-    
+    /**
+     * Handles a spectator attach request. Expects a one-byte payload indicating
+     * the desired player slot (1 or 2). If attachment fails, an {@link IOException}
+     * is thrown to force disconnection.
+     *
+     * @param payload Request payload (must contain at least one byte).
+     * @param sess    Requesting session.
+     * @throws IOException If slot is unavailable or an I/O error occurs.
+     */
     private void handleSpectateRequest(byte[] payload, Session sess) throws IOException {
         if (payload == null || payload.length < 1) {
             return;
         }
 
-        int desiredSlot = payload[0] & 0xFF;  // 1 o 2
+        int desiredSlot = payload[0] & 0xFF;
         int spectatorId = sess.clientId();
 
         boolean ok = server.attachSpectatorToSlot(spectatorId, desiredSlot);
@@ -33,12 +60,28 @@ public class AnswerProcessor {
             System.out.println("Spectator " + spectatorId
                     + " failed to attach to slot " + desiredSlot + " (no player or full).");
             System.out.println("Disconnecting spectator " + spectatorId);
-            
-            // Force disconnect by throwing an exception 
             throw new IOException("Failed to attach to player slot " + desiredSlot + " - slot may be full or player not found");
         }
     }
 
+    /**
+     * Reads a single inbound frame (already on the frame boundary) and executes
+     * the corresponding action. Unknown types are skipped by consuming the payload.
+     *
+     * <p>Frame header layout (in read order):</p>
+     * <pre>
+     * version: byte
+     * type   : byte
+     * _res   : u16
+     * fromId : s32
+     * gameId : s32
+     * len    : s32  (payload length)
+     * </pre>
+     *
+     * @param in   Stream to read the frame from.
+     * @param sess Source session.
+     * @throws IOException If an I/O error occurs while reading or handling.
+     */
     public void processFrame(DataInputStream in, Session sess) throws IOException {
         byte version = in.readByte();
         byte type    = in.readByte();
@@ -47,7 +90,6 @@ public class AnswerProcessor {
         int  gameId  = in.readInt();
         int  len     = in.readInt();
 
-        //Mensajes con payload estructurado conocido
         if (type == MsgType.PLAYER_PROPOSED) {
             int   tick  = in.readInt();
             short x     = in.readShort();
@@ -76,7 +118,6 @@ public class AnswerProcessor {
             return;
         }
 
-        // --- STATE_BUNDLE ---
         if (type == MsgType.STATE_BUNDLE) {
             byte[] buf = (len > 0) ? in.readNBytes(len) : new byte[0];
             TLVParser tlv = new TLVParser(buf);
@@ -84,13 +125,12 @@ public class AnswerProcessor {
                 TLVParser.TLV t = tlv.next();
                 if (t == null) break;
                 if (t.type == MsgType.TLV_ENTITIES_CORR) {
-                    
+                    // Reserved: entities correction handling 
                 }
             }
             return;
         }
 
-        // --- NOTIFY_DEATH_COLLISION ---
         if (type == MsgType.NOTIFY_DEATH_COLLISION) {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
@@ -100,48 +140,38 @@ public class AnswerProcessor {
             server.clearEntitiesForNewRound();
             byte lives = (byte) p.getLives();
 
-            // HUD for player + spectators
             server.broadcastLivesUpdateToGroup(sess.clientId(), lives);
 
             if (p.getLives() > 0) {
-                // respawn for everyone watching this player
                 server.broadcastRespawnDeathToGroup(sess.clientId());
             } else {
-                // game over for everyone watching this player
                 server.broadcastGameOverToGroup(sess.clientId());
             }
             return;
         }
 
         if (type == MsgType.NOTIFY_FRUIT_PICK) {
-            // Expect payload: 2 bytes x, 2 bytes y (coordinates of picked fruit)
             if (len < 4) return;
-            
+
             byte[] payload = in.readNBytes(len);
-            
-            
+
             int fruitX = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
             int fruitY = ((payload[2] & 0xFF) << 8) | (payload[3] & 0xFF);
-            
+
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
             p.increaseScore(400);
-            
-            // Broadcast score update to player + spectators
+
             server.broadcastScoreUpdateToGroup(sess.clientId(), p.getScore());
-            
-            // Remove the fruit for player + spectators
             server.sendToPlayerGroup(sess.clientId(), h -> h.sendRemoveFruit(fruitX, fruitY));
-            
-            // Remove from server's fruit list
+
             server.fruits.removeIf(r -> r.x() == fruitX && r.y() == fruitY);
             server.fruitStates.removeIf(f -> f.x == fruitX && f.y == fruitY);
-            
+
             return;
         }
 
-        // --- NOTIFY_VICTORY ---
         if (type == MsgType.NOTIFY_VICTORY) {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
@@ -152,48 +182,37 @@ public class AnswerProcessor {
 
             byte lives = (byte) p.getLives();
 
-            // HUD and respawn for everyone in the group
             server.broadcastLivesUpdateToGroup(sess.clientId(), lives);
             server.broadcastCrocSpeedIncreaseToGroup(sess.clientId());
             server.broadcastRespawnWinToGroup(sess.clientId());
             return;
         }
 
-        // --- SPECTATE_REQUEST  ---
         if (type == MsgType.SPECTATE_REQUEST) {
             byte[] payload = (len > 0) ? in.readNBytes(len) : new byte[0];
             handleSpectateRequest(payload, sess);
             return;
         }
 
-        // --- REQUEST_RESTART (player requests full game restart) ---
         if (type == MsgType.REQUEST_RESTART) {
             player p = server.getPlayerFromServer(sess.clientId());
             if (p == null) return;
 
             System.out.println("Player " + sess.clientId() + " requested game restart");
 
-            // Reset player state
             p.setLives(3);
             p.setScore(0);
 
-            // Clear all entities
             server.clearEntitiesForNewRound();
-
-            // Reset crocodile speed on server 
             server.resetCrocodileSpeed();
 
-            // Broadcast restart to player + spectators
             server.broadcastGameRestartToGroup(sess.clientId());
-
-            // Send updated HUD
             server.broadcastLivesUpdateToGroup(sess.clientId(), (byte) 3);
             server.broadcastScoreUpdateToGroup(sess.clientId(), 0);
 
             return;
         }
 
-        
         if (len > 0) in.skipNBytes(len);
     }
 }
