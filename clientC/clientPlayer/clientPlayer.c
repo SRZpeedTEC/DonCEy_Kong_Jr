@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include "raylib.h"
 
 #include "../UtilsC/msg_types.h"
@@ -136,16 +137,30 @@ static void on_game_restart(const uint8_t* p, uint32_t n){
 
 // ---- send the player proposed ----
 //receive proposed state of the player (socket connected, clientId, position, flag) from game and send to server
-static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags)
+static int send_player_proposed(int socketFd, uint32_t clientId, uint32_t tick, int16_t posX,int16_t posY,int16_t velX,int16_t velY,uint8_t flags,
+                                const uint8_t* entitiesTlv, size_t entitiesTlvLen)
 {
-    uint8_t outBuf[4+2+2+2+2+1];
+    // Payload: player state (13 bytes) + entities TLV (variable)
+    size_t totalLen = 13 + entitiesTlvLen;
+    uint8_t* outBuf = (uint8_t*)malloc(totalLen);
+    if (!outBuf) return 0;
+    
+    // Pack player state
     outBuf[0]=tick>>24; outBuf[1]=tick>>16; outBuf[2]=tick>>8; outBuf[3]=tick;
     outBuf[4]=posX>>8;  outBuf[5]=posX;
     outBuf[6]=posY>>8;  outBuf[7]=posY;
     outBuf[8]=velX>>8;  outBuf[9]=velX;
     outBuf[10]=velY>>8; outBuf[11]=velY;
     outBuf[12]=flags;
-    return cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, sizeof outBuf) ? 1 : 0;
+    
+    // Append entities TLV
+    if (entitiesTlvLen > 0) {
+        memcpy(outBuf + 13, entitiesTlv, entitiesTlvLen);
+    }
+    
+    int result = cp_send_frame(socketFd, CP_TYPE_PLAYER_PROP, clientId, 0, outBuf, (uint32_t)totalLen) ? 1 : 0;
+    free(outBuf);
+    return result;
 }
 
 // ---- send notifications to server ----
@@ -317,7 +332,11 @@ int run_player_client(const char* ip, uint16_t port)
             send_request_restart(socketFd, clientId);
         }
 
-        // Send the player's proposed state (position, velocity, flags) to the server
+        // Build entities TLV to send with player state
+        uint8_t entitiesBuf[512];
+        size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
+
+        // Send the player's proposed state (position, velocity, flags) + entities to the server
         send_player_proposed(
             socketFd,
             clientId,
@@ -326,15 +345,10 @@ int run_player_client(const char* ip, uint16_t port)
             proposedState.y,
             proposedState.vx,
             proposedState.vy,
-            proposedState.flags
+            proposedState.flags,
+            entitiesBuf,
+            entitiesLen
         );
-
-        // Debug: build an entities TLV buffer with crocodiles/fruits, just to inspect locally
-        uint8_t entitiesBuf[512];
-        size_t entitiesLen = game_build_entities_tlv(entitiesBuf, sizeof(entitiesBuf));
-        if (entitiesLen > 0) {
-            (void)entitiesLen; // suppress unused-variable warning when debug print is disabled
-        }
         
         // Draw the static map and entities on screen
         game_draw_static(cp_get_static());

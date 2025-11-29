@@ -219,6 +219,11 @@ public class Messenger {
         out.writeShort(vy);
         out.writeByte(flags);
 
+        // Entities TLV (variable length)
+        if (entitiesTlv != null && entitiesTlv.length > 0) {
+            out.write(entitiesTlv);
+        }
+
         byte[] payload = baos.toByteArray();
 
         Proto.writeHeader(s.out(), MsgType.SPECTATOR_STATE, s.clientId(), 0, payload.length);

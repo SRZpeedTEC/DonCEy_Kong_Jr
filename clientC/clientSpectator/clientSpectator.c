@@ -17,11 +17,12 @@ static FrameHandler g_frameHandlers[256];
 // ---- spectator state from the server ----
 static void on_spectator_state(const uint8_t* payloadPtr, uint32_t payloadLen)
 {
-    // Expect: x,y,vx,vy (int16) + flags (uint8) = 9 bytes
+    // Expect: x,y,vx,vy (int16) + flags (uint8) = 9 bytes + entities TLV
     if (payloadLen < 9) {
         return;
     }
 
+    // Parse player state (first 9 bytes)
     int16_t x  = (int16_t)((payloadPtr[0] << 8) | payloadPtr[1]);
     int16_t y  = (int16_t)((payloadPtr[2] << 8) | payloadPtr[3]);
     int16_t vx = (int16_t)((payloadPtr[4] << 8) | payloadPtr[5]);
@@ -30,59 +31,78 @@ static void on_spectator_state(const uint8_t* payloadPtr, uint32_t payloadLen)
 
     // Apply the remote player state to the spectator view
     game_apply_remote_state(x, y, vx, vy, flags);
+
+    // Parse entities TLV (bytes 9+)
+    if (payloadLen > 9) {
+        const uint8_t* tlvPtr = payloadPtr + 9;
+        uint32_t tlvLen = payloadLen - 9;
+
+        // Verify we have at least TLV header (type + length)
+        if (tlvLen < 3) return;
+
+        uint8_t tlvType = tlvPtr[0];
+        uint16_t valueLen = (uint16_t)((tlvPtr[1] << 8) | tlvPtr[2]);
+
+        // Verify it's the entities TLV
+        if (tlvType != TLV_ENTITIES_CORR) return;
+
+        // Verify we have the full value
+        if (tlvLen < (uint32_t)(3 + valueLen)) return;
+
+        const uint8_t* valuePtr = tlvPtr + 3;
+
+        // First clear all existing entities (full snapshot)
+        game_clear_all_entities();
+
+        // Parse entity count
+        if (valueLen < 1) return;
+        uint8_t entityCount = valuePtr[0];
+        const uint8_t* entityPtr = valuePtr + 1;
+
+        // Parse each entity: kind(1) + spriteId(1) + x(2) + y(2) = 6 bytes
+        for (uint8_t i = 0; i < entityCount; ++i) {
+            if ((entityPtr - valuePtr) + 6 > valueLen) break;
+
+            uint8_t kind = entityPtr[0];
+            uint8_t spriteId = entityPtr[1];
+            int16_t ex = (int16_t)((entityPtr[2] << 8) | entityPtr[3]);
+            int16_t ey = (int16_t)((entityPtr[4] << 8) | entityPtr[5]);
+            entityPtr += 6;
+
+            // Skip player entity (kind 0) - position handled separately
+            if (kind == 0) continue;
+
+            // Spawn crocodile (kind 1)
+            if (kind == 1) {
+                // Crocodile mapping (based on crocodile.h):
+                // CROC_VARIANT_RED=1, CROC_VARIANT_BLUE=2
+                // Player: variant=2 (BLUE) → spriteId=1
+                //         variant=1 (RED)  → spriteId=2
+                // So: spriteId=1 → variant=2 (BLUE)
+                //     spriteId=2 → variant=1 (RED)
+                uint8_t variant = (spriteId == 1) ? 2 : 1;
+                game_spawn_croc(variant, ex, ey);
+            }
+            // Spawn fruit (kind 2)
+            else if (kind == 2) {
+                // Fruit mapping (based on game.c TLV building):
+                // Player: variant=2 (APPLE)  → spriteId=1
+                //         variant=3 (ORANGE) → spriteId=2
+                //         variant=1 (BANANA) → spriteId=3
+                // So: spriteId=1 → variant=2 (APPLE)
+                //     spriteId=2 → variant=3 (ORANGE)
+                //     spriteId=3 → variant=1 (BANANA)
+                uint8_t variant;
+                if (spriteId == 1) variant = 2;      // APPLE
+                else if (spriteId == 2) variant = 3; // ORANGE
+                else variant = 1;                     // BANANA (spriteId==3 or default)
+                game_spawn_fruit(variant, ex, ey);
+            }
+        }
+    }
 }
 
-// ---- spawn entities from the server ----
-static void on_spawn_croc(const uint8_t *p, uint32_t n){
-    uint8_t variant = 0; 
-    int16_t x = 0, y = 0;
-
-    if (n == 4) { // legacy format: only x,y
-        x = (int16_t)((p[0] << 8) | p[1]);
-        y = (int16_t)((p[2] << 8) | p[3]);
-    } else if (n >= 5) {
-        // variant + x,y
-        variant = p[0];
-        x = (int16_t)((p[1] << 8) | p[2]);
-        y = (int16_t)((p[3] << 8) | p[4]);
-    } else return;
-
-    game_spawn_croc(variant, x, y);
-}
-
-static void on_spawn_fruit(const uint8_t *p, uint32_t n){
-    uint8_t variant = 0; 
-    int16_t x = 0, y = 0;
-
-    if (n == 4) { // legacy format: only x,y
-        x = (int16_t)((p[0] << 8) | p[1]);
-        y = (int16_t)((p[2] << 8) | p[3]);
-    } else if (n >= 5) {
-        // variant + x,y
-        variant = p[0];
-        x = (int16_t)((p[1] << 8) | p[2]);
-        y = (int16_t)((p[3] << 8) | p[4]);
-    } else return;
-
-    game_spawn_fruit(variant, x, y);
-}
-
-static void on_remove_fruit(const uint8_t* p, uint32_t n){
-    if (n < 4) return;
-
-    int16_t x = (int16_t)((p[0] << 8) | p[1]);
-    int16_t y = (int16_t)((p[2] << 8) | p[3]);
-
-    // Delegate to the game module to remove the fruit at (x, y)
-    game_remove_fruit_at(x, y);
-}
-
-static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
-    (void)p; (void)n;
-    crocodile_increase_speed();
-}
-
-// ---- dispatcher registration and call ----
+// ---- gameplay event handlers ----
 static void disp_register(uint8_t frameType, FrameHandler handlerFn)
 { 
     g_frameHandlers[frameType] = handlerFn; 
@@ -123,6 +143,12 @@ static void on_game_restart(const uint8_t* p, uint32_t n){
     (void)p; (void)n;
     game_restart();
 }
+
+static void on_croc_speed_increase(const uint8_t* p, uint32_t n){
+    (void)p; (void)n;
+    crocodile_increase_speed();
+}
+
 
 // ---- INIT_STATIC handler ----
 static void on_init_static(const uint8_t* payloadPtr, uint32_t payloadLen){
@@ -208,9 +234,7 @@ int run_spectator_client(const char* ip, uint16_t port, uint8_t desiredSlot) {
     for (int i = 0; i < 256; ++i) g_frameHandlers[i] = NULL;
     disp_register(CP_TYPE_INIT_STATIC,             on_init_static);
     disp_register(CP_TYPE_STATE_BUNDLE,            on_state_bundle);
-    disp_register(CP_TYPE_SPAWN_CROC,              on_spawn_croc);
-    disp_register(CP_TYPE_SPAWN_FRUIT,             on_spawn_fruit);
-    disp_register(CP_TYPE_REMOVE_FRUIT,            on_remove_fruit);
+    // NOTE: SPAWN_CROC, SPAWN_FRUIT, REMOVE_FRUIT no longer used - entities come via TLV in SPECTATOR_STATE
     disp_register(CP_TYPE_SPECTATOR_STATE,         on_spectator_state);
     disp_register(CP_TYPE_RESPAWN_DEATH_COLLISION, on_respawn_death);
     disp_register(CP_TYPE_RESPAWN_WIN,             on_respawn_win);

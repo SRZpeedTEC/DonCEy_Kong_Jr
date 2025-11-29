@@ -53,3 +53,6 @@ void game_update_spectator(const CP_Static* staticMap);
 
 void game_restart(void);
 bool game_check_restart_clicked(void);
+
+// Clear all dynamic entities (for spectator snapshot updates)
+void game_clear_all_entities(void);
